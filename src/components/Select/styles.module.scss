@@ -1,0 +1,65 @@
+.trigger {
+  width: 100px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border: 1px solid rgba(204, 204, 204, 0.5);
+  border-radius: 8px;
+  background-color: rgba(7, 7, 7, 0.65);
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.icon {
+  margin-left: 8px;
+}
+
+.content {
+  position: absolute;
+  z-index: 9999;
+  width: 125px;
+  background-color: rgba(7, 7, 7, 0.65);
+  backdrop-filter: blur(8px);
+  border: 1px solid #333;
+  border-radius: 8px;
+  padding: 8px;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  padding: 8px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background 0.2s ease;
+}
+
+.item:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.item[aria-disabled="true"] {
+  color: #aaa;
+  cursor: not-allowed;
+}
+
+.itemIndicator {
+  margin-left: auto;
+  color: #f5f5f5;
+}
+
+.label {
+  padding: 8px 12px;
+  font-weight: bold;
+}
+
+.scrollButton {
+  height: 24px;
+  background-color: #f5f5f5;
+  cursor: pointer;
+}

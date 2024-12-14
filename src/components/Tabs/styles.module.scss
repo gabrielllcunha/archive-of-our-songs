@@ -1,0 +1,45 @@
+.tabsList {
+  display: flex;
+  gap: 16px;
+  padding: 8px;
+  background-color: transparent;
+  border-radius: 8px;
+  align-items: center;
+  justify-content: flex-start;
+}
+
+.tabsContainer {
+  display: flex;
+  gap: 16px;
+  width: 100%;
+}
+
+.iconsContainer {
+  display: flex;
+}
+
+.tabsTrigger {
+  padding: 12px 24px;
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  font-size: 16px;
+  font-weight: 600;
+  color: #666;
+  transition: color 0.3s, background-color 0.3s;
+
+  &:hover {
+    color: #333;
+  }
+
+  &[data-state="active"] {
+    color: #fff;
+    background-color: transparent;
+    border-radius: 8px;
+  }
+}
+
+.tabsContent {
+  background-color: transparent;
+  border-radius: 8px;
+}

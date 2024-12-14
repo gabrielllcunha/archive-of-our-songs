@@ -1,0 +1,173 @@
+.background {
+  min-height: 100vh;
+  height: 100%;
+  padding: 1.5rem;
+  display: flex;
+  background-color: #0A0A0A;
+  background-image: url('/images/noise.png');
+  background-size: cover;
+  background-repeat: no-repeat;
+  background-position: center;
+}
+
+.gradientWrapper {
+  width: 258px;
+  height: 292px;
+  position: absolute;
+  z-index: 0;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  filter: blur(65px);
+
+  .gradient1,
+  .gradient2 {
+    width: 125px;
+    height: 125px;
+    position: absolute;
+    border-radius: 50%;
+  }
+
+  .gradient1 {
+    bottom: 0;
+    left: 0;
+    animation: path1 5s ease-in-out infinite;
+  }
+
+  .gradient2 {
+    top: 0;
+    right: 0;
+    animation: path2 5s ease-in-out infinite;
+    animation-delay: 1.5s;
+  }
+
+  &.albumsColors {
+    .gradient1 {
+      background: #731DD8;
+    }
+    .gradient2 {
+      background: #48A9A6;
+    }
+  }
+
+  &.singersColors {
+    .gradient1 {
+      background: #E9141B;
+    }
+    .gradient2 {
+      background: #4BF218;
+    }
+  }
+
+  &.songsColors {
+    .gradient1 {
+      background: #FF780A;
+    }
+    .gradient2 {
+      background: #EE216F;
+    }
+  }
+}
+
+.mainWrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  z-index: 9999;
+  width: 100%;
+  gap: 3rem;
+  position: relative;
+}
+
+.headerWrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 50%;
+  margin-top: 2rem;
+  gap: 1.5rem;
+}
+
+.contentWrapper {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  gap: 1rem;
+}
+
+.sideIcons {
+  display: flex;
+  gap: 1rem;
+}
+
+.secretIcon {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  z-index: 99999;
+  transition: all 0.3s ease;
+}
+
+.secretIcon:hover {
+  cursor: pointer;
+  transform: scale(1.1);
+}
+
+.monthsGrid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 16px;
+  margin-top: 20px;
+
+  @media (max-width: 1024px) {
+    grid-template-columns: repeat(3, 1fr);
+    grid-auto-rows: 1fr;
+  }
+
+  @media (max-width: 768px) {
+    grid-template-columns: repeat(2, 1fr);
+    grid-auto-rows: 1fr;
+  }
+
+  @media (max-width: 480px) {
+    grid-template-columns: 1fr;
+    grid-auto-rows: 1fr;
+  }
+}
+
+@keyframes path1 {
+  0% {
+    transform: translate(0, 0);
+  }
+  25% {
+    transform: translate(-50px, -75px);
+  }
+  50% {
+    transform: translate(-75px, 55px);
+  }
+  75% {
+    transform: translate(75px, -40px);
+  }
+  100% {
+    transform: translate(0, 0);
+  }
+}
+
+@keyframes path2 {
+  0% {
+    transform: translate(0, 0);
+  }
+  25% {
+    transform: translate(55px, 80px);
+  }
+  50% {
+    transform: translate(-65px, -75px);
+  }
+  75% {
+    transform: translate(50px, 90px);
+  }
+  100% {
+    transform: translate(0, 0);
+  }
+}
