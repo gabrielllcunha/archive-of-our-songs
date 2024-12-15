@@ -9,7 +9,3 @@ This project was made using the following technologies:
 - NextJs
 - Sass
 - RadixUI
-
-## License
-
-MIT License © [Gabriel Cunha](https://github.com/gabrielllcunha)
