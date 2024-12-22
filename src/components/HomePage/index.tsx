@@ -7,9 +7,9 @@ import { ArchiveIcon, CalendarIcon, ListBulletIcon } from "@radix-ui/react-icons
 import { Dialog } from "../Dialog";
 import { SegmentedControl } from "../SegmentedControl";
 import { lastfmService } from "@/services";
-import { Album } from "@/models/album";
 import { fetchYearAlbums } from "@/utils/fetchYearAlbums";
 import { fetchDataFromEndpoint } from "@/utils/fetchDataFromEndpoint";
+import { Album, Singer, Song } from "@/models";
 // export async function getServerSideProps() {
 //   const albums = await fetchYearAlbums(2024);
 //   return { props: { serverAlbums: albums } };
@@ -21,8 +21,8 @@ export function HomePage() {
   const [viewType, setViewType] = useState<string>("month");
   const [year, setYear] = useState<number>(currentYear);
   const [albums, setAlbums] = useState<Album[]>([]);
-  const [singers, setSingers] = useState<Singers[]>([]);
-  const [songs, setSongs] = useState<Songs[]>([]);
+  const [singers, setSingers] = useState<Singer[]>([]);
+  const [songs, setSongs] = useState<Song[]>([]);
   const [loading, setLoading] = useState(true);
 
   const handleTabChange = (value: string) => {
