@@ -1,6 +1,6 @@
 export interface Singer {
     month: string;
-    singerName: string;
+    name: string;
     imageUrl: string;
     scrobbles: string;
 }

@@ -1,19 +1,21 @@
+import classNames from "classnames";
 import styles from "./styles.module.scss";
 
 interface MonthItemProps {
   month: string;
   imageUrl?: string;
-  albumName?: string;
+  name?: string;
   artist?: string;
   scrobbles?: number;
+  rounded?: boolean;
 }
 
-export function MonthItem({ month, imageUrl, albumName, artist, scrobbles }: MonthItemProps) {
+export function MonthItem({ month, imageUrl, name, artist, scrobbles, rounded }: MonthItemProps) {
   return (
     <div className={styles.monthItem}>
       <div className={styles.monthName}>{month}</div>
       <div
-        className={styles.imageBox}
+        className={classNames(styles.imageBox, { [styles.rounded]: rounded })}
         style={{ backgroundImage: imageUrl ? `url(${imageUrl})` : "none" }}
       >
         {!imageUrl && <span className={styles.placeholder}>.</span>}

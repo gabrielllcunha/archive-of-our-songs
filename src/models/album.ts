@@ -1,6 +1,6 @@
 export interface Album {
     month: string;
-    albumName: string;
+    name: string;
     artist: string;
     imageUrl: string;
     scrobbles: string;

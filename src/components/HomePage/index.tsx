@@ -1,15 +1,9 @@
-import { useCallback, useEffect, useState } from "react";
-import { Select } from "../Select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "../Tabs";
 import styles from "./styles.module.scss";
-import { MonthItem } from "../MonthItem";
+import { useCallback, useEffect, useState } from "react";
 import { ArchiveIcon, CalendarIcon, ListBulletIcon } from "@radix-ui/react-icons";
-import { Dialog } from "../Dialog";
-import { SegmentedControl } from "../SegmentedControl";
-import { lastfmService } from "@/services";
-import { fetchYearAlbums } from "@/utils/fetchYearAlbums";
-import { fetchDataFromEndpoint } from "@/utils/fetchDataFromEndpoint";
 import { Album, Singer, Song } from "@/models";
+import { Dialog, MonthItem, Progress, SegmentedControl, Select, Tabs, TabsContent, TabsList, TabsTrigger } from '@/components';
+import { fetchDataFromEndpoint } from "@/utils/fetchDataFromEndpoint";
 // export async function getServerSideProps() {
 //   const albums = await fetchYearAlbums(2024);
 //   return { props: { serverAlbums: albums } };
@@ -23,7 +17,12 @@ export function HomePage() {
   const [albums, setAlbums] = useState<Album[]>([]);
   const [singers, setSingers] = useState<Singer[]>([]);
   const [songs, setSongs] = useState<Song[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [loadingProgress, setLoadingProgress] = useState(0);
+  const months = [
+    "January", "February", "March", "April", "May", "June",
+    "July", "August", "September", "October", "November", "December"
+  ];
 
   const handleTabChange = (value: string) => {
     setActiveTab(value);
@@ -81,11 +80,43 @@ export function HomePage() {
     }
   }, [activeTab, year, fetchData]);
 
+  const renderProgressBar = (name: string) => {
+    return (
+      <div className={styles.loadingWrapper}>
+        <div className={styles.loading}>
+          <Progress value={loadingProgress} />
+        </div>
+        <span>Loading {name}...</span>
+      </div>
+    );
+  };
 
-  const months = [
-    "January", "February", "March", "April", "May", "June",
-    "July", "August", "September", "October", "November", "December"
-  ];
+  const renderTabsContent = (name: string, items: any[]) => {
+    return (
+      <TabsContent value={name}>
+        {loading ? (
+          renderProgressBar(name)
+        ) : (
+          <div className={styles.monthsGrid}>
+            {months.map((month, index) => {
+              const item = items ? items[index] : null;
+              return (
+                <MonthItem
+                  key={month}
+                  month={month}
+                  imageUrl={item?.imageUrl || undefined}
+                  name={item?.name || ""}
+                  artist={item?.artist || ""}
+                  scrobbles={item?.scrobbles || 0}
+                  rounded={name === "singers"}
+                />
+              );
+            })}
+          </div>
+        )}
+      </TabsContent>
+    );
+  };
 
   return (
     <>
@@ -131,29 +162,9 @@ export function HomePage() {
                   </SegmentedControl.Root>
                 </div>
               </TabsList>
-              <TabsContent value="albums">
-                <div className={styles.monthsGrid}>
-                  {months.map((month, index) => {
-                    const album = albums[index];
-                    return (
-                      <MonthItem
-                        key={month}
-                        month={month}
-                        imageUrl={album?.imageUrl || undefined}
-                        albumName={album?.albumName || "No album"}
-                        artist={album?.artist || "Unknown artist"}
-                      // scrobbles={album?.scrobbles || 0}
-                      />
-                    );
-                  })}
-                </div>
-              </TabsContent>
-              <TabsContent value="singers">
-                <span>Singers content.</span>
-              </TabsContent>
-              <TabsContent value="songs">
-                <span>Songs content.</span>
-              </TabsContent>
+              {renderTabsContent("albums", albums)}
+              {renderTabsContent("singers", singers)}
+              {renderTabsContent("songs", songs)}
             </Tabs>
           </div>
           <Dialog trigger={
@@ -161,8 +172,9 @@ export function HomePage() {
               <ArchiveIcon height={24} width={24} />
             </div>
           }>
-            <h2>Dialog Content</h2>
-            <p>Lorem Ipsum Dolor Sit Amet.</p>
+            <div className={styles.dialogContent}>
+              <span>Coming soon...</span>
+            </div>
           </Dialog>
         </div>
       </div>

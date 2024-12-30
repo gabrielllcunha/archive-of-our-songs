@@ -1,6 +1,6 @@
 export interface Song {
     month: string;
-    songName: string;
+    name: string;
     artist: string;
     imageUrl: string;
     scrobbles: string;
