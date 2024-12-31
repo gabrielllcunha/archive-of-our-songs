@@ -1,5 +1,6 @@
 import classNames from "classnames";
 import styles from "./styles.module.scss";
+import { FileIcon } from "@radix-ui/react-icons";
 
 interface MonthItemProps {
   month: string;
@@ -18,18 +19,23 @@ export function MonthItem({ month, imageUrl, name, artist, scrobbles, rounded }:
         className={classNames(styles.imageBox, { [styles.rounded]: rounded })}
         style={{ backgroundImage: imageUrl ? `url(${imageUrl})` : "none" }}
       >
-        {!imageUrl && <span className={styles.placeholder}>.</span>}
+        {!imageUrl && (
+          <div className={styles.placeholderWrapper}>
+            <FileIcon />
+            <span>No data</span>
+          </div>
+        )}
       </div>
       {rounded ? (
         <>
-          <span className={styles.itemName} title={name}>{name}</span>
-          <span className={styles.scrobblesQty}><b>{scrobbles}</b> scrobbles</span>
+          {name && <span className={styles.itemName} title={name}>{name}</span>}
+          {scrobbles && <span className={styles.scrobblesQty}><b>{scrobbles}</b> scrobbles</span>}
         </>
       ) : (
         <>
-          <span className={styles.itemName} title={`❝${name}❞`}>❝{name}❞</span>
-          <span className={styles.artistName} title={`by ${artist}`}>by {artist}</span>
-          <span className={styles.scrobblesQty}><b>{scrobbles}</b> scrobbles</span>
+          {name && <span className={styles.itemName} title={`❝${name}❞`}>❝{name}❞</span>}
+          {artist && <span className={styles.artistName} title={`by ${artist}`}>by {artist}</span>}
+          {scrobbles && <span className={styles.scrobblesQty}><b>{scrobbles}</b> scrobbles</span>}
         </>
       )}
     </div>

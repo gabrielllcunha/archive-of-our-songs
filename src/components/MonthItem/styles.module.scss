@@ -29,9 +29,16 @@
   border-radius: 50%;
 }
 
-.placeholder {
-  font-size: 2rem;
-  color: #aaa;
+.placeholderWrapper {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 0.5rem;
+  color: rgba(170, 170, 170, 0.5);
+  text-transform: uppercase;
+  font-size: 0.7rem;
+  font-weight: 500;
 }
 
 .itemName {

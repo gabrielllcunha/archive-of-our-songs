@@ -110,7 +110,7 @@ export function HomePage() {
                   imageUrl={item?.imageUrl || undefined}
                   name={item?.name || ""}
                   artist={item?.artist || ""}
-                  scrobbles={item?.scrobbles || 0}
+                  scrobbles={item?.scrobbles || null}
                   rounded={name === "singers"}
                 />
               );
