@@ -65,19 +65,22 @@ export function HomePage() {
   }, [year]);
 
   useEffect(() => {
-    switch (activeTab) {
-      case "albums":
-        fetchData("fetch-albums-by-month", setAlbums);
-        break;
-      case "singers":
-        fetchData("fetch-singers-by-month", setSingers);
-        break;
-      case "songs":
-        fetchData("fetch-songs-by-month", setSongs);
-        break;
-      default:
-        break;
-    }
+    const debounceTime = setTimeout(() => {
+      switch (activeTab) {
+        case "albums":
+          fetchData("fetch-albums-by-month", setAlbums);
+          break;
+        case "singers":
+          fetchData("fetch-singers-by-month", setSingers);
+          break;
+        case "songs":
+          fetchData("fetch-songs-by-month", setSongs);
+          break;
+        default:
+          break;
+      }
+    }, 500);
+    return () => clearTimeout(debounceTime);
   }, [activeTab, year, fetchData]);
 
   const renderProgressBar = (name: string) => {

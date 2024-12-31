@@ -3,5 +3,5 @@ export interface Album {
     name: string;
     artist: string;
     imageUrl: string;
-    scrobbles: string;
+    scrobbles: number;
 }

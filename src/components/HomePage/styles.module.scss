@@ -139,7 +139,7 @@
   display: grid;
   grid-template-columns: repeat(6, 1fr);
   gap: 16px;
-  margin-top: 20px;
+  margin-top: 10px;
 
   @media (max-width: 1024px) {
     grid-template-columns: repeat(3, 1fr);
