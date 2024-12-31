@@ -20,9 +20,18 @@ export function MonthItem({ month, imageUrl, name, artist, scrobbles, rounded }:
       >
         {!imageUrl && <span className={styles.placeholder}>.</span>}
       </div>
-      <span className={styles.itemName} title={`❝${name}❞`}>❝{name}❞</span>
-      <span className={styles.artistName} title={`by ${artist}`}>by {artist}</span>
-      <span className={styles.scrobblesQty}><b>{scrobbles}</b> scrobbles</span>
+      {rounded ? (
+        <>
+          <span className={styles.itemName} title={name}>{name}</span>
+          <span className={styles.scrobblesQty}><b>{scrobbles}</b> scrobbles</span>
+        </>
+      ) : (
+        <>
+          <span className={styles.itemName} title={`❝${name}❞`}>❝{name}❞</span>
+          <span className={styles.artistName} title={`by ${artist}`}>by {artist}</span>
+          <span className={styles.scrobblesQty}><b>{scrobbles}</b> scrobbles</span>
+        </>
+      )}
     </div>
   );
 }
