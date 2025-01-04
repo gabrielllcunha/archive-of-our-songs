@@ -20,7 +20,7 @@ export function Select({ value, onChange, items, label }: SelectProps) {
             </RadixSelect.Trigger>
 
             <RadixSelect.Portal>
-                <RadixSelect.Content className={styles.content}>
+                <RadixSelect.Content className={styles.content} position="popper">
                     <RadixSelect.ScrollUpButton className={styles.scrollButton}>
                         <ChevronUpIcon />
                     </RadixSelect.ScrollUpButton>
