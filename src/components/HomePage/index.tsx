@@ -15,7 +15,7 @@ export function HomePage() {
   const [viewType, setViewType] = useState<string>("month");
   const [year, setYear] = useState<number>(currentYear);
   const [albums, setAlbums] = useState<Album[]>([]);
-  const [singers, setSingers] = useState<Singer[]>([]);
+  const [artists, setArtists] = useState<Singer[]>([]);
   const [songs, setSongs] = useState<Song[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadingProgress, setLoadingProgress] = useState(0);
@@ -70,8 +70,8 @@ export function HomePage() {
         case "albums":
           fetchData("fetch-albums-by-month", setAlbums);
           break;
-        case "singers":
-          fetchData("fetch-singers-by-month", setSingers);
+        case "artists":
+          fetchData("fetch-artists-by-month", setArtists);
           break;
         case "songs":
           fetchData("fetch-songs-by-month", setSongs);
@@ -111,7 +111,7 @@ export function HomePage() {
                   name={item?.name || ""}
                   artist={item?.artist || ""}
                   scrobbles={item?.scrobbles || null}
-                  rounded={name === "singers"}
+                  rounded={name === "artists"}
                 />
               );
             })}
@@ -127,8 +127,8 @@ export function HomePage() {
         <div
           className={`${styles.gradientWrapper} ${activeTab === "albums"
             ? styles.albumsColors
-            : activeTab === "singers"
-              ? styles.singersColors
+            : activeTab === "artists"
+              ? styles.artistsColors
               : styles.songsColors
             }`}
         >
@@ -148,7 +148,7 @@ export function HomePage() {
             <Tabs defaultValue={activeTab} onValueChange={handleTabChange}>
               <TabsList sideIcons>
                 <TabsTrigger value="albums">Albums</TabsTrigger>
-                <TabsTrigger value="singers">Singers</TabsTrigger>
+                <TabsTrigger value="artists">Artists</TabsTrigger>
                 <TabsTrigger value="songs">Songs</TabsTrigger>
                 <div className={styles.sideIcons}>
                   <SegmentedControl.Root
@@ -166,7 +166,7 @@ export function HomePage() {
                 </div>
               </TabsList>
               {renderTabsContent("albums", albums)}
-              {renderTabsContent("singers", singers)}
+              {renderTabsContent("artists", artists)}
               {renderTabsContent("songs", songs)}
             </Tabs>
           </div>
