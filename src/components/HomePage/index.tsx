@@ -13,7 +13,7 @@ export function HomePage() {
   const currentYear = new Date().getFullYear();
   const [activeTab, setActiveTab] = useState<string>("albums");
   const [viewType, setViewType] = useState<string>("month");
-  const [year, setYear] = useState<number>(currentYear);
+  const [year, setYear] = useState<number>(currentYear - 1);
   const [albums, setAlbums] = useState<Album[]>([]);
   const [artists, setArtists] = useState<Singer[]>([]);
   const [songs, setSongs] = useState<Song[]>([]);
