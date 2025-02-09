@@ -1,6 +1,6 @@
 export const fetchDataFromEndpoint = async (endpoint: string, payload: Record<string, any>) => {
   try {
-    const response = await fetch(`http://127.0.0.1:5000/${endpoint}`, {
+    const response = await fetch(`/api/${endpoint}`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
