@@ -4,10 +4,18 @@ import { ArchiveIcon, CalendarIcon, ListBulletIcon } from "@radix-ui/react-icons
 import { Album, Singer, Song } from "@/models";
 import { Dialog, MonthItem, Progress, SegmentedControl, Select, Tabs, TabsContent, TabsList, TabsTrigger } from '@/components';
 import { fetchDataFromEndpoint } from "@/utils/fetchDataFromEndpoint";
+import { db } from "@/utils/indexedDB";
 // export async function getServerSideProps() {
 //   const albums = await fetchYearAlbums(2024);
 //   return { props: { serverAlbums: albums } };
 // }
+type DataEntry = {
+  name?: string;
+  artist?: string;
+  scrobbles?: number;
+  imageUrl?: string;
+  month?: number;
+}
 
 export function HomePage() {
   const currentYear = new Date().getFullYear();
@@ -48,17 +56,56 @@ export function HomePage() {
   const fetchData = useCallback(async (endpoint: string, setter: React.Dispatch<React.SetStateAction<any[]>>) => {
     try {
       setLoading(true);
+      const storeName =
+        endpoint === "fetch-albums-by-month" ? "albums" :
+          endpoint === "fetch-artists-by-month" ? "artists" :
+            endpoint === "fetch-songs-by-month" ? "songs" :
+              '';
+
+      const cachedData: DataEntry[] = await db.getData(storeName, year);
+      const missingMonths = cachedData && cachedData
+        .filter(entry =>
+          !entry.name ||
+          !entry.artist ||
+          entry.scrobbles === 0 ||
+          !entry.imageUrl
+        )
+        .map(entry => entry.month);
+      if (cachedData) {
+        if (missingMonths.length === 0) {
+          setter(cachedData);
+          return;
+        }
+      }
       const payload = {
         username: process.env.NEXT_PUBLIC_ACCOUNT_LOGIN,
         password: process.env.NEXT_PUBLIC_ACCOUNT_PASSWORD,
         target_account: process.env.NEXT_PUBLIC_TARGET_ACCOUNT_USER,
         year,
+        ...(cachedData && { months: missingMonths }),
       };
-
-      const data = await fetchDataFromEndpoint(endpoint, payload);
-      setter(data);
+      const data: DataEntry[] = await fetchDataFromEndpoint(endpoint, payload);
+      const updatedData = cachedData ? cachedData.map(entry => {
+        const newEntry = data.find(d => d.month === entry.month);
+        return newEntry ? newEntry : entry;
+      }) : data;
+      await db.storeData(storeName, year, updatedData);
+      setter(updatedData);
     } catch (error) {
-      console.error("Error fetching data:", error);
+      console.error(`Error fetching from ${endpoint}:`, error);
+      switch (endpoint) {
+        case "fetch-albums-by-month":
+          setAlbums([]);
+          break;
+        case "fetch-artists-by-month":
+          setArtists([]);
+          break;
+        case "fetch-songs-by-month":
+          setSongs([]);
+          break;
+        default:
+          break;
+      }
     } finally {
       setLoading(false);
     }

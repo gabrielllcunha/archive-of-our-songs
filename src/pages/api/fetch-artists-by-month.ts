@@ -1,35 +1,34 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { chromium } from 'playwright';
+import { login } from '@/utils/login';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { username, password, year, target_account } = req.body;
+  const { username, password, year, target_account, months } = req.body;
 
   if (!username || !password || !target_account) {
     return res.status(400).json({ error: 'Required authentication details are missing' });
   }
 
-  const months = [
+  const allMonths = [
     "January", "February", "March", "April", "May", "June",
     "July", "August", "September", "October", "November", "December"
   ];
+  const monthsToFetch = months || allMonths;
   const artists = [];
 
   const browser = await chromium.launch({ headless: true });
   const page = await browser.newPage();
 
   try {
-    await page.goto('https://www.last.fm/login');
-    await page.fill('input[name="username_or_email"]', username);
-    await page.fill('input[name="password"]', password);
-    await page.click('button[name="submit"]');
-    await page.waitForURL(`https://www.last.fm/user/${username}`, { timeout: 60000 });
+    await login(page, username, password);
 
     for (let month_index = 1; month_index <= 12; month_index++) {
-      const month = months[month_index - 1];
+      const month = allMonths[month_index - 1];
+      if (!monthsToFetch.includes(month)) continue;
       const url = `https://www.last.fm/user/${target_account}/library/artists?from=${year}-${String(month_index).padStart(2, '0')}-01&rangetype=1month&page=1`;
       await page.goto(url, { timeout: 60000 });
 
