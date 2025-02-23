@@ -1,5 +1,5 @@
 import styles from "./styles.module.scss";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { ArchiveIcon, CalendarIcon, ListBulletIcon } from "@radix-ui/react-icons";
 import { Album, Singer, Song } from "@/models";
 import { Dialog, MonthItem, Progress, SegmentedControl, Select, Tabs, TabsContent, TabsList, TabsTrigger } from '@/components';
@@ -27,10 +27,10 @@ export function HomePage() {
   const [songs, setSongs] = useState<Song[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadingProgress, setLoadingProgress] = useState(0);
-  const months = [
+  const months = useMemo(() => [
     "January", "February", "March", "April", "May", "June",
     "July", "August", "September", "October", "November", "December"
-  ];
+  ], []);
 
   const handleTabChange = (value: string) => {
     setActiveTab(value);
@@ -63,19 +63,31 @@ export function HomePage() {
               '';
 
       const cachedData: DataEntry[] = await db.getData(storeName, year);
-      const missingMonths = cachedData && cachedData
+      const currentDate = new Date();
+      const currentMonth = currentDate.getMonth() + 1;
+      const futureMonths = [];
+      if (year === currentYear) {
+        for (let month = currentMonth; month <= 12; month++) {
+          futureMonths.push(month);
+        }
+      } else if (year > currentYear) {
+        for (let month = 1; month <= 12; month++) {
+          futureMonths.push(month);
+        }
+      }
+      const futureMonthsList = futureMonths.map(month => months[month - 1]);
+      const incorrectCacheData = cachedData && cachedData
         .filter(entry =>
           !entry.name ||
-          !entry.artist ||
+          (endpoint !== "fetch-artists-by-month" && !entry.artist) ||
           entry.scrobbles === 0 ||
           !entry.imageUrl
         )
         .map(entry => entry.month);
-      if (cachedData) {
-        if (missingMonths.length === 0) {
-          setter(cachedData);
-          return;
-        }
+      const missingMonths = Array.from(new Set([...futureMonthsList, ...(incorrectCacheData || [])]));
+      if (cachedData && missingMonths.length === 0) {
+        setter(cachedData);
+        return;
       }
       const payload = {
         username: process.env.NEXT_PUBLIC_ACCOUNT_LOGIN,
@@ -109,7 +121,7 @@ export function HomePage() {
     } finally {
       setLoading(false);
     }
-  }, [year]);
+  }, [year, currentYear, months]);
 
   useEffect(() => {
     const debounceTime = setTimeout(() => {
