@@ -1,6 +1,6 @@
 import classNames from "classnames";
 import styles from "./styles.module.scss";
-import { FileIcon } from "@radix-ui/react-icons";
+import { ImageIcon } from "@radix-ui/react-icons";
 
 interface MonthItemProps {
   month: string;
@@ -21,8 +21,7 @@ export function MonthItem({ month, imageUrl, name, artist, scrobbles, rounded }:
       >
         {!imageUrl && (
           <div className={styles.placeholderWrapper}>
-            <FileIcon />
-            <span>No data</span>
+            <ImageIcon />
           </div>
         )}
       </div>

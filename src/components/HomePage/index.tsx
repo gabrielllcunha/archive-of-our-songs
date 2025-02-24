@@ -5,10 +5,7 @@ import { Album, Singer, Song } from "@/models";
 import { Dialog, MonthItem, Progress, SegmentedControl, Select, Tabs, TabsContent, TabsList, TabsTrigger } from '@/components';
 import { fetchDataFromEndpoint } from "@/utils/fetchDataFromEndpoint";
 import { db } from "@/utils/indexedDB";
-// export async function getServerSideProps() {
-//   const albums = await fetchYearAlbums(2024);
-//   return { props: { serverAlbums: albums } };
-// }
+
 type DataEntry = {
   name?: string;
   artist?: string;
@@ -16,7 +13,6 @@ type DataEntry = {
   imageUrl?: string;
   month?: number;
 }
-
 export function HomePage() {
   const currentYear = new Date().getFullYear();
   const [activeTab, setActiveTab] = useState<string>("albums");
