@@ -1,4 +1,4 @@
-export const fetchDataFromEndpoint = async (endpoint: string, payload: Record<string, any>) => {
+export const fetchDataFromEndpoint = async (endpoint: string, payload: Record<string, any>, signal?: AbortSignal) => {
   try {
     const response = await fetch(`/api/${endpoint}`, {
       method: "POST",
@@ -6,6 +6,7 @@ export const fetchDataFromEndpoint = async (endpoint: string, payload: Record<st
         "Content-Type": "application/json",
       },
       body: JSON.stringify(payload),
+      signal,
     });
 
     if (!response.ok) {

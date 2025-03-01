@@ -49,7 +49,7 @@ export function HomePage() {
     return years;
   };
 
-  const fetchData = useCallback(async (endpoint: string, setter: React.Dispatch<React.SetStateAction<any[]>>) => {
+  const fetchData = useCallback(async (endpoint: string, setter: React.Dispatch<React.SetStateAction<any[]>>, signal: AbortSignal) => {
     try {
       setLoading(true);
       const storeName =
@@ -92,7 +92,7 @@ export function HomePage() {
         year,
         ...(cachedData && { months: missingMonths }),
       };
-      const data: DataEntry[] = await fetchDataFromEndpoint(endpoint, payload);
+      const data: DataEntry[] = await fetchDataFromEndpoint(endpoint, payload, signal);
       const updatedData = cachedData ? cachedData.map(entry => {
         const newEntry = data.find(d => d.month === entry.month);
         return newEntry ? newEntry : entry;
@@ -120,22 +120,27 @@ export function HomePage() {
   }, [year, currentYear, months]);
 
   useEffect(() => {
+    const abortController = new AbortController();
+    const { signal } = abortController;
     const debounceTime = setTimeout(() => {
       switch (activeTab) {
         case "albums":
-          fetchData("fetch-albums-by-month", setAlbums);
+          fetchData("fetch-albums-by-month", setAlbums, signal);
           break;
         case "artists":
-          fetchData("fetch-artists-by-month", setArtists);
+          fetchData("fetch-artists-by-month", setArtists, signal);
           break;
         case "songs":
-          fetchData("fetch-songs-by-month", setSongs);
+          fetchData("fetch-songs-by-month", setSongs, signal);
           break;
         default:
           break;
       }
     }, 500);
-    return () => clearTimeout(debounceTime);
+    return () => {
+      clearTimeout(debounceTime);
+      abortController.abort();
+    };
   }, [activeTab, year, fetchData]);
 
   const renderProgressBar = (name: string) => {
