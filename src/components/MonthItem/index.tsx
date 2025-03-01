@@ -1,6 +1,7 @@
 import classNames from "classnames";
 import styles from "./styles.module.scss";
 import { ImageIcon } from "@radix-ui/react-icons";
+import Image from "next/image";
 
 interface MonthItemProps {
   month: string;
@@ -17,9 +18,16 @@ export function MonthItem({ month, imageUrl, name, artist, scrobbles, rounded }:
       <div className={styles.monthName}>{month}</div>
       <div
         className={classNames(styles.imageBox, { [styles.rounded]: rounded })}
-        style={{ backgroundImage: imageUrl ? `url(${imageUrl})` : "none" }}
       >
-        {!imageUrl && (
+        {imageUrl ? (
+          <Image
+            src={imageUrl}
+            width={150}
+            height={150}
+            alt={name || ""}
+            className={styles.image}
+          />
+        ) : (
           <div className={styles.placeholderWrapper}>
             <ImageIcon />
           </div>
