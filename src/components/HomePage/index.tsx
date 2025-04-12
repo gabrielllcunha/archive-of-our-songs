@@ -147,9 +147,12 @@ export function HomePage() {
     return (
       <div className={styles.loadingWrapper}>
         <div className={styles.loading}>
-          <Progress value={loadingProgress} />
+          <Progress value={null} />
         </div>
-        <span>Loading {name}...</span>
+        <div className={styles.loadingText}>
+          <span>Loading {name}...</span>
+          <span className={styles.loadingSubtitle}>(This process can take around 5 minutes)</span>
+        </div>
       </div>
     );
   };
