@@ -2,7 +2,13 @@
 const nextConfig = {
   reactStrictMode: true,
   images: {
-    domains: ['lastfm.freetls.fastly.net'],
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'lastfm.freetls.fastly.net',
+        pathname: '**',
+      },
+    ],
   },
 }
 
