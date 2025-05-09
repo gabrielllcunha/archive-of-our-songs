@@ -24,6 +24,18 @@
   border: 1px solid rgba(204, 204, 204, 0.5);
   border-radius: 5px;
   overflow: hidden;
+  user-select: none;
+  transition: transform 0.175s ease;
+  cursor: pointer;
+  &:hover {
+    transform: scale(1.05) rotate(-1deg);
+  }
+}
+
+.imageBox img {
+  pointer-events: none;
+  -webkit-user-drag: none;
+  -webkit-touch-callout: none;
 }
 
 .rounded {
