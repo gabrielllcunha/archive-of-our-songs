@@ -1,0 +1,19 @@
+.secretIcon {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  z-index: 99999;
+  transition: all 0.3s ease;
+}
+
+.secretIcon:hover {
+  cursor: pointer;
+  transform: scale(1.1);
+}
+
+.dialogContent {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 50vh;
+}

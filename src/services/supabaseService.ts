@@ -1,0 +1,123 @@
+import { supabase } from '@/utils/supabase';
+import { Database } from '@/types/database.types';
+
+export type YearlyDataType = 'albums' | 'artists' | 'songs';
+
+export interface MonthlyEntry {
+  name: string;
+  artist: string;
+  scrobbles: number;
+  imageUrl: string;
+  month: string;
+}
+
+export const supabaseService = {
+  async getYearlyData(lastfmUsername: string, year: number, type: YearlyDataType) {
+    const { data: user, error: userError } = await supabase
+      .from('users')
+      .select('id')
+      .eq('lastfm_username', lastfmUsername)
+      .single();
+
+    if (userError && userError.code !== 'PGRST116') {
+      throw userError;
+    }
+
+    let userId = user?.id;
+    if (!userId) {
+      const { data: newUser, error: createError } = await supabase
+        .from('users')
+        .insert({ lastfm_username: lastfmUsername })
+        .select('id')
+        .single();
+
+      if (createError) throw createError;
+      userId = newUser.id;
+    }
+
+    const { data: yearlyData, error: yearlyError } = await supabase
+      .from('yearly_data')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('year', year)
+      .eq('type', type)
+      .single();
+
+    if (yearlyError && yearlyError.code !== 'PGRST116') {
+      throw yearlyError;
+    }
+
+    if (!yearlyData) {
+      return null;
+    }
+
+    const { data: entries, error: entriesError } = await supabase
+      .from('monthly_entries')
+      .select('*')
+      .eq('yearly_data_id', yearlyData.id)
+      .order('month');
+
+    if (entriesError) throw entriesError;
+
+    return entries.map(entry => ({
+      month: entry.month,
+      name: entry.name,
+      artist: entry.artist,
+      imageUrl: entry.image_url,
+      scrobbles: entry.scrobbles,
+    }));
+  },
+
+  async storeYearlyData(lastfmUsername: string, year: number, type: YearlyDataType, entries: MonthlyEntry[]) {
+    const { data: user, error: userError } = await supabase
+      .from('users')
+      .select('id')
+      .eq('lastfm_username', lastfmUsername)
+      .single();
+
+    if (userError && userError.code !== 'PGRST116') {
+      throw userError;
+    }
+
+    let userId = user?.id;
+    if (!userId) {
+      const { data: newUser, error: createError } = await supabase
+        .from('users')
+        .insert({ lastfm_username: lastfmUsername })
+        .select('id')
+        .single();
+
+      if (createError) throw createError;
+      userId = newUser.id;
+    }
+
+    const { data: yearlyData, error: yearlyError } = await supabase
+      .from('yearly_data')
+      .insert({
+        user_id: userId,
+        year,
+        type,
+      })
+      .select('id')
+      .single();
+
+    if (yearlyError) throw yearlyError;
+
+    const { error: entriesError } = await supabase
+      .from('monthly_entries')
+      .insert(
+        entries.map(entry => ({
+          yearly_data_id: yearlyData.id,
+          month: entry.month,
+          name: entry.name,
+          artist: entry.artist,
+          image_url: entry.imageUrl,
+          scrobbles: entry.scrobbles,
+        }))
+      );
+
+    if (entriesError) throw entriesError;
+
+    return entries;
+  },
+}; 

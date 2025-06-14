@@ -45,6 +45,7 @@
     .gradient1 {
       background: #731DD8;
     }
+
     .gradient2 {
       background: #48A9A6;
     }
@@ -54,6 +55,7 @@
     .gradient1 {
       background: #E9141B;
     }
+
     .gradient2 {
       background: #4BF218;
     }
@@ -63,6 +65,7 @@
     .gradient1 {
       background: #FF780A;
     }
+
     .gradient2 {
       background: #EE216F;
     }
@@ -99,26 +102,6 @@
 .sideIcons {
   display: flex;
   gap: 1rem;
-}
-
-.secretIcon {
-  position: absolute;
-  top: 1rem;
-  right: 1rem;
-  z-index: 99999;
-  transition: all 0.3s ease;
-}
-
-.secretIcon:hover {
-  cursor: pointer;
-  transform: scale(1.1);
-}
-
-.dialogContent {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  height: 50vh;
 }
 
 .loadingWrapper {
@@ -176,15 +159,19 @@
   0% {
     transform: translate(0, 0);
   }
+
   25% {
     transform: translate(-50px, -75px);
   }
+
   50% {
     transform: translate(-75px, 55px);
   }
+
   75% {
     transform: translate(75px, -40px);
   }
+
   100% {
     transform: translate(0, 0);
   }
@@ -194,16 +181,113 @@
   0% {
     transform: translate(0, 0);
   }
+
   25% {
     transform: translate(55px, 80px);
   }
+
   50% {
     transform: translate(-65px, -75px);
   }
+
   75% {
     transform: translate(50px, 90px);
   }
+
   100% {
     transform: translate(0, 0);
   }
+}
+
+.container {
+  padding: 2rem;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.controls {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+
+.select {
+  padding: 0.5rem;
+  border-radius: 0.5rem;
+  border: 1px solid #e2e8f0;
+  background-color: white;
+  font-size: 1rem;
+  min-width: 150px;
+}
+
+.loading {
+  margin: 2rem 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.progressText {
+  text-align: center;
+  font-size: 0.875rem;
+  color: #64748b;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 2rem;
+}
+
+.card {
+  background: white;
+  border-radius: 1rem;
+  overflow: hidden;
+  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  transition: transform 0.2s;
+
+  &:hover {
+    transform: translateY(-4px);
+  }
+}
+
+.image {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+}
+
+.content {
+  padding: 1rem;
+
+  h3 {
+    margin: 0;
+    font-size: 1.125rem;
+    font-weight: 600;
+    color: #1e293b;
+  }
+
+  p {
+    margin: 0.5rem 0;
+    font-size: 0.875rem;
+    color: #64748b;
+  }
+}
+
+.error {
+  text-align: center;
+  color: #ef4444;
+  padding: 2rem;
+  background: #fee2e2;
+  border-radius: 0.5rem;
+  margin: 2rem 0;
+}
+
+.empty {
+  text-align: center;
+  color: #64748b;
+  padding: 2rem;
+  background: #f8fafc;
+  border-radius: 0.5rem;
+  margin: 2rem 0;
 }

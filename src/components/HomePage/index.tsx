@@ -4,15 +4,10 @@ import { ArchiveIcon, CalendarIcon, ListBulletIcon } from "@radix-ui/react-icons
 import { Album, Singer, Song } from "@/models";
 import { Dialog, MonthItem, Progress, SegmentedControl, Select, Tabs, TabsContent, TabsList, TabsTrigger } from '@/components';
 import { fetchDataFromEndpoint } from "@/utils/fetchDataFromEndpoint";
-import { db } from "@/utils/indexedDB";
+import { supabaseService } from '@/services/supabaseService';
+import { ModalExtraContent } from "../ModalExtraContent";
+import { ModalInitialConfig } from "../ModalInitialConfig";
 
-type DataEntry = {
-  name?: string;
-  artist?: string;
-  scrobbles?: number;
-  imageUrl?: string;
-  month?: number;
-}
 export function HomePage() {
   const currentYear = new Date().getFullYear();
   const [activeTab, setActiveTab] = useState<string>("albums");
@@ -22,7 +17,7 @@ export function HomePage() {
   const [artists, setArtists] = useState<Singer[]>([]);
   const [songs, setSongs] = useState<Song[]>([]);
   const [loading, setLoading] = useState(false);
-  const [loadingProgress, setLoadingProgress] = useState(0);
+  const [authenticatedWithLastfm, setAuthenticatedWithLastfm] = useState<boolean>(false);
   const months = useMemo(() => [
     "January", "February", "March", "April", "May", "June",
     "July", "August", "September", "October", "November", "December"
@@ -52,53 +47,40 @@ export function HomePage() {
   const fetchData = useCallback(async (endpoint: string, setter: React.Dispatch<React.SetStateAction<any[]>>, signal: AbortSignal) => {
     try {
       setLoading(true);
-      const storeName =
-        endpoint === "fetch-albums-by-month" ? "albums" :
-          endpoint === "fetch-artists-by-month" ? "artists" :
-            endpoint === "fetch-songs-by-month" ? "songs" :
-              '';
-
-      const cachedData: DataEntry[] = await db.getData(storeName, year);
-      const currentDate = new Date();
-      const currentMonth = currentDate.getMonth() + 1;
-      const futureMonths = [];
-      if (year === currentYear) {
-        for (let month = currentMonth; month <= 12; month++) {
-          futureMonths.push(month);
-        }
-      } else if (year > currentYear) {
-        for (let month = 1; month <= 12; month++) {
-          futureMonths.push(month);
-        }
-      }
-      const futureMonthsList = futureMonths.map(month => months[month - 1]);
-      const incorrectCacheData = cachedData && cachedData
-        .filter(entry =>
-          !entry.name ||
-          (endpoint !== "fetch-artists-by-month" && !entry.artist) ||
-          entry.scrobbles === 0 ||
-          !entry.imageUrl
-        )
-        .map(entry => entry.month);
-      const missingMonths = Array.from(new Set([...futureMonthsList, ...(incorrectCacheData || [])]));
-      if (cachedData && missingMonths.length === 0) {
-        setter(cachedData);
+      const username = localStorage.getItem('lastfm_username');
+      if (!username) {
+        setAuthenticatedWithLastfm(false);
         return;
       }
+
+      const storedData = await supabaseService.getYearlyData(
+        username,
+        year,
+        endpoint === "fetch-albums-by-month" ? "albums" :
+          endpoint === "fetch-artists-by-month" ? "artists" : "songs"
+      );
+
+      if (storedData) {
+        setter(storedData);
+        return;
+      }
+
       const payload = {
         username: process.env.NEXT_PUBLIC_ACCOUNT_LOGIN,
         password: process.env.NEXT_PUBLIC_ACCOUNT_PASSWORD,
-        target_account: process.env.NEXT_PUBLIC_TARGET_ACCOUNT_USER,
+        target_account: username,
         year,
-        ...(cachedData && { months: missingMonths }),
       };
-      const data: DataEntry[] = await fetchDataFromEndpoint(endpoint, payload, signal);
-      const updatedData = cachedData ? cachedData.map(entry => {
-        const newEntry = data.find(d => d.month === entry.month);
-        return newEntry ? newEntry : entry;
-      }) : data;
-      await db.storeData(storeName, year, updatedData);
-      setter(updatedData);
+
+      const data = await fetchDataFromEndpoint(endpoint, payload, signal);
+      setter(data);
+      await supabaseService.storeYearlyData(
+        username,
+        year,
+        endpoint === "fetch-albums-by-month" ? "albums" :
+          endpoint === "fetch-artists-by-month" ? "artists" : "songs",
+        data
+      );
     } catch (error) {
       console.error(`Error fetching from ${endpoint}:`, error);
       switch (endpoint) {
@@ -117,7 +99,7 @@ export function HomePage() {
     } finally {
       setLoading(false);
     }
-  }, [year, currentYear, months]);
+  }, [year]);
 
   useEffect(() => {
     const abortController = new AbortController();
@@ -164,8 +146,8 @@ export function HomePage() {
           renderProgressBar(name)
         ) : (
           <div className={styles.monthsGrid}>
-            {months.map((month, index) => {
-              const item = items ? items[index] : null;
+            {months.map((month) => {
+              const item = items?.find(item => item.month === month) || null;
               return (
                 <MonthItem
                   key={month}
@@ -198,51 +180,46 @@ export function HomePage() {
           <div className={styles.gradient1}></div>
           <div className={styles.gradient2}></div>
         </div>
-        <div className={styles.mainWrapper}>
-          <div className={styles.headerWrapper}>
-            <h1>Archive of Our Songs</h1>
-            <Select
-              value={String(year)}
-              onChange={handleYearChange}
-              items={generateYearOptions()}
-            />
-          </div>
-          <div className={styles.contentWrapper}>
-            <Tabs defaultValue={activeTab} onValueChange={handleTabChange}>
-              <TabsList sideIcons>
-                <TabsTrigger value="albums">Albums</TabsTrigger>
-                <TabsTrigger value="artists">Artists</TabsTrigger>
-                <TabsTrigger value="songs">Songs</TabsTrigger>
-                <div className={styles.sideIcons}>
-                  <SegmentedControl.Root
-                    defaultValue="month"
-                    size="1"
-                    onValueChange={handleViewTypeChange}
-                  >
-                    <SegmentedControl.Item value="month">
-                      <CalendarIcon />
-                    </SegmentedControl.Item>
-                    <SegmentedControl.Item value="list">
-                      <ListBulletIcon />
-                    </SegmentedControl.Item>
-                  </SegmentedControl.Root>
-                </div>
-              </TabsList>
-              {renderTabsContent("albums", albums)}
-              {renderTabsContent("artists", artists)}
-              {renderTabsContent("songs", songs)}
-            </Tabs>
-          </div>
-          <Dialog trigger={
-            <div className={styles.secretIcon}>
-              <ArchiveIcon height={24} width={24} />
+        {authenticatedWithLastfm && (
+          <div className={styles.mainWrapper}>
+            <div className={styles.headerWrapper}>
+              <h1>Archive of Our Songs</h1>
+              <Select
+                value={String(year)}
+                onChange={handleYearChange}
+                items={generateYearOptions()}
+              />
             </div>
-          }>
-            <div className={styles.dialogContent}>
-              <span>Coming soon...</span>
+            <div className={styles.contentWrapper}>
+              <Tabs defaultValue={activeTab} onValueChange={handleTabChange}>
+                <TabsList sideIcons>
+                  <TabsTrigger value="albums">Albums</TabsTrigger>
+                  <TabsTrigger value="artists">Artists</TabsTrigger>
+                  <TabsTrigger value="songs">Songs</TabsTrigger>
+                  <div className={styles.sideIcons}>
+                    <SegmentedControl.Root
+                      defaultValue="month"
+                      size="1"
+                      onValueChange={handleViewTypeChange}
+                    >
+                      <SegmentedControl.Item value="month">
+                        <CalendarIcon />
+                      </SegmentedControl.Item>
+                      <SegmentedControl.Item value="list">
+                        <ListBulletIcon />
+                      </SegmentedControl.Item>
+                    </SegmentedControl.Root>
+                  </div>
+                </TabsList>
+                {renderTabsContent("albums", albums)}
+                {renderTabsContent("artists", artists)}
+                {renderTabsContent("songs", songs)}
+              </Tabs>
             </div>
-          </Dialog>
-        </div>
+            <ModalExtraContent />
+          </div>
+        )}
+        <ModalInitialConfig authenticatedWithLastfm={authenticatedWithLastfm} setAuthenticatedWithLastfm={setAuthenticatedWithLastfm} />
       </div>
     </>
   );

@@ -4,7 +4,6 @@ const LASTFM_API_KEY = process.env.LASTFM_API_KEY;
 
 const AxiosInstance: AxiosInstance = axios.create({
   baseURL: 'https://ws.audioscrobbler.com/2.0',
-  // baseURL: `${process.env.LASTFM_API_URL}`,
   withCredentials: false,
 });
 
