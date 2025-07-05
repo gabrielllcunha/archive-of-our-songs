@@ -10,3 +10,4 @@ This project was made using the following technologies:
 - Sass
 - RadixUI
 - Supabase
+- Playwright

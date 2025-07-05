@@ -28,7 +28,11 @@
   transition: transform 0.175s ease;
   cursor: pointer;
   &:hover {
-    transform: scale(1.05) rotate(-1deg);
+    transform: scale(1.05);
+  }
+  
+  &:not(.rounded):hover {
+    transform: scale(1.05) rotate(-0.5deg);
   }
 }
 
