@@ -21,9 +21,21 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       'albums'
     );
 
-    if (storedData) {
+    if (storedData && !months) {
       return res.status(200).json(storedData);
     }
+
+    if (storedData && months) {
+      const incompleteMonths = months.filter((month: string) => {
+        const monthData = storedData.find(data => data.month === month);
+        return !monthData || !monthData.name || !monthData.artist || monthData.scrobbles === 0 || !monthData.imageUrl;
+      });
+
+      if (incompleteMonths.length === 0) {
+        return res.status(200).json(storedData);
+      }
+    }
+
     const allMonths = [
       "January", "February", "March", "April", "May", "June",
       "July", "August", "September", "October", "November", "December"
@@ -37,9 +49,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     try {
       await login(page, username, password);
 
-      for (let month_index = 1; month_index <= 12; month_index++) {
-        const month = allMonths[month_index - 1];
-        if (!monthsToFetch.includes(month)) continue;
+      for (const month of monthsToFetch) {
+        const month_index = allMonths.indexOf(month) + 1;
+        if (month_index === 0) continue;
         const url = `https://www.last.fm/user/${target_account}/library/albums?from=${year}-${String(month_index).padStart(2, '0')}-01&rangetype=1month&page=1`;
         await page.goto(url, { timeout: 60000 });
 

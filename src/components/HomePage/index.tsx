@@ -52,35 +52,96 @@ export function HomePage() {
         setAuthenticatedWithLastfm(false);
         return;
       }
-
       const storedData = await supabaseService.getYearlyData(
         username,
         year,
         endpoint === "fetch-albums-by-month" ? "albums" :
           endpoint === "fetch-artists-by-month" ? "artists" : "songs"
       );
-
-      if (storedData) {
+      const currentDate = new Date();
+      const currentMonth = currentDate.getMonth() + 1;
+      const futureMonths = [];
+      if (year === currentYear) {
+        for (let month = currentMonth; month <= 12; month++) {
+          futureMonths.push(months[month - 1]);
+        }
+      } else if (year > currentYear) {
+        for (let month = 1; month <= 12; month++) {
+          futureMonths.push(months[month - 1]);
+        }
+      }
+      const incorrectCacheData = storedData?.filter(entry =>
+        !entry.name ||
+        (endpoint !== "fetch-artists-by-month" && !entry.artist) ||
+        entry.scrobbles === 0 ||
+        !entry.imageUrl
+      ).map(entry => entry.month) || [];
+      let monthsPayload = undefined;
+      if (year === currentYear) {
+        const currentMonthNameIndex = new Date().getMonth();
+        monthsPayload = months.slice(0, currentMonthNameIndex + 1);
+      } else if (storedData) {
+        monthsPayload = incorrectCacheData;
+        if (storedData) {
+          const allMonths = months;
+          const missingMonths = allMonths.filter(month => !storedData.some(data => data.month === month));
+          monthsPayload = Array.from(new Set([...(monthsPayload || []), ...missingMonths]));
+        }
+      }
+      if (storedData && (!monthsPayload || monthsPayload.length === 0)) {
         setter(storedData);
         return;
       }
-
       const payload = {
         username: process.env.NEXT_PUBLIC_ACCOUNT_LOGIN,
         password: process.env.NEXT_PUBLIC_ACCOUNT_PASSWORD,
         target_account: username,
         year,
+        ...(monthsPayload && { months: monthsPayload }),
       };
-
       const data = await fetchDataFromEndpoint(endpoint, payload, signal);
-      setter(data);
-      await supabaseService.storeYearlyData(
-        username,
-        year,
-        endpoint === "fetch-albums-by-month" ? "albums" :
-          endpoint === "fetch-artists-by-month" ? "artists" : "songs",
-        data
-      );
+      if (storedData) {
+        let monthsToDisplay = months;
+        if (year === currentYear) {
+          const currentMonthNameIndex = new Date().getMonth();
+          monthsToDisplay = months.slice(0, currentMonthNameIndex + 1);
+        }
+        const mergedData = monthsToDisplay.map(monthName => {
+          return (
+            data.find((item: Album | Singer | Song) => item.month === monthName) ||
+            storedData.find((item: Album | Singer | Song) => item.month === monthName) ||
+            { month: monthName, name: '', artist: '', imageUrl: '', scrobbles: 0 }
+          );
+        });
+        setter(mergedData);
+        await supabaseService.storeYearlyData(
+          username,
+          year,
+          endpoint === "fetch-albums-by-month" ? "albums" :
+            endpoint === "fetch-artists-by-month" ? "artists" : "songs",
+          mergedData
+        );
+      } else {
+        let monthsToDisplay = months;
+        if (year === currentYear) {
+          const currentMonthNameIndex = new Date().getMonth();
+          monthsToDisplay = months.slice(0, currentMonthNameIndex + 1);
+        }
+        const fullData = monthsToDisplay.map(monthName => {
+          return (
+            data.find((item: Album | Singer | Song) => item.month === monthName) ||
+            { month: monthName, name: '', artist: '', imageUrl: '', scrobbles: 0 }
+          );
+        });
+        setter(fullData);
+        await supabaseService.storeYearlyData(
+          username,
+          year,
+          endpoint === "fetch-albums-by-month" ? "albums" :
+            endpoint === "fetch-artists-by-month" ? "artists" : "songs",
+          fullData
+        );
+      }
     } catch (error) {
       console.error(`Error fetching from ${endpoint}:`, error);
       switch (endpoint) {
@@ -99,7 +160,7 @@ export function HomePage() {
     } finally {
       setLoading(false);
     }
-  }, [year]);
+  }, [year, months, currentYear]);
 
   useEffect(() => {
     const abortController = new AbortController();

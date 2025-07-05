@@ -90,24 +90,44 @@ export const supabaseService = {
       if (createError) throw createError;
       userId = newUser.id;
     }
-
-    const { data: yearlyData, error: yearlyError } = await supabase
+    const { data: existingYearlyData, error: yearlyError } = await supabase
       .from('yearly_data')
-      .insert({
-        user_id: userId,
-        year,
-        type,
-      })
       .select('id')
+      .eq('user_id', userId)
+      .eq('year', year)
+      .eq('type', type)
       .single();
 
-    if (yearlyError) throw yearlyError;
+    let yearlyDataId;
+    if (yearlyError && yearlyError.code === 'PGRST116') {
+      const { data: newYearlyData, error: insertError } = await supabase
+        .from('yearly_data')
+        .insert({
+          user_id: userId,
+          year,
+          type,
+        })
+        .select('id')
+        .single();
 
+      if (insertError) throw insertError;
+      yearlyDataId = newYearlyData.id;
+    } else if (yearlyError) {
+      throw yearlyError;
+    } else {
+      yearlyDataId = existingYearlyData.id;
+    }
+    const { error: deleteError } = await supabase
+      .from('monthly_entries')
+      .delete()
+      .eq('yearly_data_id', yearlyDataId);
+
+    if (deleteError) throw deleteError;
     const { error: entriesError } = await supabase
       .from('monthly_entries')
       .insert(
         entries.map(entry => ({
-          yearly_data_id: yearlyData.id,
+          yearly_data_id: yearlyDataId,
           month: entry.month,
           name: entry.name,
           artist: entry.artist,
