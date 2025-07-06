@@ -8,7 +8,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { username, password, year, target_account, months } = req.body;
+  const { username, password, year, target_account, months, forceRefresh } = req.body;
 
   if (!username || !password || !target_account) {
     return res.status(400).json({ error: 'Required authentication details are missing' });
@@ -21,18 +21,20 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       'artists'
     );
 
-    if (storedData && !months) {
-      return res.status(200).json(storedData);
-    }
-
-    if (storedData && months) {
-      const incompleteMonths = months.filter((month: string) => {
-        const monthData = storedData.find(data => data.month === month);
-        return !monthData || !monthData.name || monthData.scrobbles === 0 || !monthData.imageUrl;
-      });
-
-      if (incompleteMonths.length === 0) {
+    if (!forceRefresh) {
+      if (storedData && !months) {
         return res.status(200).json(storedData);
+      }
+
+      if (storedData && months) {
+        const incompleteMonths = months.filter((month: string) => {
+          const monthData = storedData.find(data => data.month === month);
+          return !monthData || !monthData.name || monthData.scrobbles === 0 || !monthData.imageUrl;
+        });
+
+        if (incompleteMonths.length === 0) {
+          return res.status(200).json(storedData);
+        }
       }
     }
 

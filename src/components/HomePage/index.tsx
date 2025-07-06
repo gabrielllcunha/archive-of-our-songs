@@ -1,8 +1,8 @@
 import styles from "./styles.module.scss";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ArchiveIcon, CalendarIcon, ListBulletIcon } from "@radix-ui/react-icons";
+import { ArchiveIcon, CalendarIcon, ListBulletIcon, UpdateIcon } from "@radix-ui/react-icons";
 import { Album, Singer, Song } from "@/models";
-import { Dialog, MonthItem, Progress, SegmentedControl, Select, Tabs, TabsContent, TabsList, TabsTrigger } from '@/components';
+import { Button, Dialog, MonthItem, Progress, SegmentedControl, Select, Tabs, TabsContent, TabsList, TabsTrigger } from '@/components';
 import { fetchDataFromEndpoint } from "@/utils/fetchDataFromEndpoint";
 import { supabaseService } from '@/services/supabaseService';
 import { ModalExtraContent } from "../ModalExtraContent";
@@ -35,6 +35,25 @@ export function HomePage() {
     setViewType(value);
   };
 
+  const handleRefreshData = () => {
+    const abortController = new AbortController();
+    const { signal } = abortController;
+
+    switch (activeTab) {
+      case "albums":
+        fetchData("fetch-albums-by-month", setAlbums, signal, true);
+        break;
+      case "artists":
+        fetchData("fetch-artists-by-month", setArtists, signal, true);
+        break;
+      case "songs":
+        fetchData("fetch-songs-by-month", setSongs, signal, true);
+        break;
+      default:
+        break;
+    }
+  };
+
   const generateYearOptions = () => {
     const startYear = 2021;
     const years = [];
@@ -44,13 +63,26 @@ export function HomePage() {
     return years;
   };
 
-  const fetchData = useCallback(async (endpoint: string, setter: React.Dispatch<React.SetStateAction<any[]>>, signal: AbortSignal) => {
+  const fetchData = useCallback(async (endpoint: string, setter: React.Dispatch<React.SetStateAction<any[]>>, signal: AbortSignal, forceRefresh = false) => {
     try {
       setLoading(true);
       const username = localStorage.getItem('lastfm_username');
       if (!username) {
         setAuthenticatedWithLastfm(false);
         return;
+      }
+      if (!forceRefresh) {
+        const storedData = await supabaseService.getYearlyData(
+          username,
+          year,
+          endpoint === "fetch-albums-by-month" ? "albums" :
+            endpoint === "fetch-artists-by-month" ? "artists" : "songs"
+        );
+
+        if (storedData && storedData.length > 0) {
+          setter(storedData);
+          return;
+        }
       }
       const storedData = await supabaseService.getYearlyData(
         username,
@@ -98,6 +130,7 @@ export function HomePage() {
         target_account: username,
         year,
         ...(monthsPayload && { months: monthsPayload }),
+        ...(forceRefresh && { forceRefresh: true }),
       };
       const data = await fetchDataFromEndpoint(endpoint, payload, signal);
       if (storedData) {
@@ -257,6 +290,10 @@ export function HomePage() {
                   <TabsTrigger value="albums">Albums</TabsTrigger>
                   <TabsTrigger value="artists">Artists</TabsTrigger>
                   <TabsTrigger value="songs">Songs</TabsTrigger>
+                  <Button variant="secondary" size="small" className={styles.refreshButton} onClick={handleRefreshData} disabled={loading}>
+                    <UpdateIcon style={{ marginRight: '8px', width: '14px', height: '14px' }} />
+                    Refresh Data
+                  </Button>
                   <div className={styles.sideIcons}>
                     <SegmentedControl.Root
                       defaultValue="month"

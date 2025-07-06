@@ -102,6 +102,13 @@
 .sideIcons {
   display: flex;
   gap: 1rem;
+  margin-left: 1rem;
+}
+
+.refreshButton {
+  &:hover {
+    background-color: transparent !important;
+  }
 }
 
 .loadingWrapper {
