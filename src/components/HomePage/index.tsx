@@ -1,8 +1,8 @@
 import styles from "./styles.module.scss";
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { ArchiveIcon, CalendarIcon, ListBulletIcon, UpdateIcon } from "@radix-ui/react-icons";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { CalendarIcon, ListBulletIcon, UpdateIcon } from "@radix-ui/react-icons";
 import { Album, Singer, Song } from "@/models";
-import { Button, Dialog, MonthItem, Progress, SegmentedControl, Select, Tabs, TabsContent, TabsList, TabsTrigger } from '@/components';
+import { Button, MonthItem, Progress, SegmentedControl, Select, Tabs, TabsContent, TabsList, TabsTrigger } from '@/components';
 import { fetchDataFromEndpoint } from "@/utils/fetchDataFromEndpoint";
 import { supabaseService } from '@/services/supabaseService';
 import { ModalExtraContent } from "../ModalExtraContent";
@@ -22,6 +22,8 @@ export function HomePage() {
     "January", "February", "March", "April", "May", "June",
     "July", "August", "September", "October", "November", "December"
   ], []);
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const isRefreshingRef = useRef(false);
 
   const handleTabChange = (value: string) => {
     setActiveTab(value);
@@ -36,21 +38,31 @@ export function HomePage() {
   };
 
   const handleRefreshData = () => {
-    const abortController = new AbortController();
-    const { signal } = abortController;
-
+    if (isRefreshingRef.current) return;
+    isRefreshingRef.current = true;
+    abortControllerRef.current?.abort();
+    abortControllerRef.current = new AbortController();
+    const { signal } = abortControllerRef.current;
+    const onFinally = () => { isRefreshingRef.current = false; };
+    let fetchPromise;
     switch (activeTab) {
       case "albums":
-        fetchData("fetch-albums-by-month", setAlbums, signal, true);
+        fetchPromise = fetchData("fetch-albums-by-month", setAlbums, signal, true);
         break;
       case "artists":
-        fetchData("fetch-artists-by-month", setArtists, signal, true);
+        fetchPromise = fetchData("fetch-artists-by-month", setArtists, signal, true);
         break;
       case "songs":
-        fetchData("fetch-songs-by-month", setSongs, signal, true);
+        fetchPromise = fetchData("fetch-songs-by-month", setSongs, signal, true);
         break;
       default:
+        fetchPromise = Promise.resolve();
         break;
+    }
+    if (fetchPromise && typeof fetchPromise.finally === 'function') {
+      fetchPromise.finally(onFinally);
+    } else {
+      onFinally();
     }
   };
 
@@ -109,7 +121,9 @@ export function HomePage() {
         !entry.imageUrl
       ).map(entry => entry.month) || [];
       let monthsPayload = undefined;
-      if (year === currentYear) {
+      if (forceRefresh) {
+        monthsPayload = months;
+      } else if (year === currentYear) {
         const currentMonthNameIndex = new Date().getMonth();
         monthsPayload = months.slice(0, currentMonthNameIndex + 1);
       } else if (storedData) {
@@ -196,8 +210,9 @@ export function HomePage() {
   }, [year, months, currentYear]);
 
   useEffect(() => {
-    const abortController = new AbortController();
-    const { signal } = abortController;
+    abortControllerRef.current?.abort();
+    abortControllerRef.current = new AbortController();
+    const { signal } = abortControllerRef.current;
     const debounceTime = setTimeout(() => {
       switch (activeTab) {
         case "albums":
@@ -215,7 +230,7 @@ export function HomePage() {
     }, 500);
     return () => {
       clearTimeout(debounceTime);
-      abortController.abort();
+      abortControllerRef.current?.abort();
     };
   }, [activeTab, year, fetchData]);
 
