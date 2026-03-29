@@ -4,7 +4,7 @@ import { CalendarIcon, ListBulletIcon, UpdateIcon } from "@radix-ui/react-icons"
 import { Album, Singer, Song } from "@/models";
 import { Button, MonthItem, Progress, SegmentedControl, Select, Tabs, TabsContent, TabsList, TabsTrigger } from '@/components';
 import { fetchDataFromEndpoint } from "@/utils/fetchDataFromEndpoint";
-import { supabaseService } from '@/services/supabaseService';
+import { yearlyDataStorage } from '@/services/yearlyDataStorage';
 import { ModalExtraContent } from "../ModalExtraContent";
 import { ModalInitialConfig } from "../ModalInitialConfig";
 
@@ -69,7 +69,8 @@ export function HomePage() {
   const generateYearOptions = () => {
     const startYear = 2021;
     const years = [];
-    for (let i = startYear; i <= currentYear; i++) {
+    const latestSelectableYear = currentYear - 1;
+    for (let i = startYear; i <= latestSelectableYear; i++) {
       years.push({ value: String(i), label: String(i) });
     }
     return years;
@@ -84,7 +85,7 @@ export function HomePage() {
         return;
       }
       if (!forceRefresh) {
-        const storedData = await supabaseService.getYearlyData(
+        const storedData = await yearlyDataStorage.getYearlyData(
           username,
           year,
           endpoint === "fetch-albums-by-month" ? "albums" :
@@ -96,7 +97,7 @@ export function HomePage() {
           return;
         }
       }
-      const storedData = await supabaseService.getYearlyData(
+      const storedData = await yearlyDataStorage.getYearlyData(
         username,
         year,
         endpoint === "fetch-albums-by-month" ? "albums" :
@@ -161,7 +162,7 @@ export function HomePage() {
           );
         });
         setter(mergedData);
-        await supabaseService.storeYearlyData(
+        await yearlyDataStorage.storeYearlyData(
           username,
           year,
           endpoint === "fetch-albums-by-month" ? "albums" :
@@ -181,7 +182,7 @@ export function HomePage() {
           );
         });
         setter(fullData);
-        await supabaseService.storeYearlyData(
+        await yearlyDataStorage.storeYearlyData(
           username,
           year,
           endpoint === "fetch-albums-by-month" ? "albums" :

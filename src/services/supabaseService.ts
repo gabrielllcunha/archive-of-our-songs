@@ -1,7 +1,14 @@
 import { supabase } from '@/utils/supabase';
-import { Database } from '@/types/database.types';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 export type YearlyDataType = 'albums' | 'artists' | 'songs';
+
+function requireSupabase(): SupabaseClient {
+  if (!supabase) {
+    throw new Error('Supabase is not configured');
+  }
+  return supabase;
+}
 
 export interface MonthlyEntry {
   name: string;
@@ -13,7 +20,8 @@ export interface MonthlyEntry {
 
 export const supabaseService = {
   async getYearlyData(lastfmUsername: string, year: number, type: YearlyDataType) {
-    const { data: user, error: userError } = await supabase
+    const sb = requireSupabase();
+    const { data: user, error: userError } = await sb
       .from('users')
       .select('id')
       .eq('lastfm_username', lastfmUsername)
@@ -25,7 +33,7 @@ export const supabaseService = {
 
     let userId = user?.id;
     if (!userId) {
-      const { data: newUser, error: createError } = await supabase
+      const { data: newUser, error: createError } = await sb
         .from('users')
         .insert({ lastfm_username: lastfmUsername })
         .select('id')
@@ -35,7 +43,7 @@ export const supabaseService = {
       userId = newUser.id;
     }
 
-    const { data: yearlyData, error: yearlyError } = await supabase
+    const { data: yearlyData, error: yearlyError } = await sb
       .from('yearly_data')
       .select('id')
       .eq('user_id', userId)
@@ -51,7 +59,7 @@ export const supabaseService = {
       return null;
     }
 
-    const { data: entries, error: entriesError } = await supabase
+    const { data: entries, error: entriesError } = await sb
       .from('monthly_entries')
       .select('*')
       .eq('yearly_data_id', yearlyData.id)
@@ -69,7 +77,8 @@ export const supabaseService = {
   },
 
   async storeYearlyData(lastfmUsername: string, year: number, type: YearlyDataType, entries: MonthlyEntry[]) {
-    const { data: user, error: userError } = await supabase
+    const sb = requireSupabase();
+    const { data: user, error: userError } = await sb
       .from('users')
       .select('id')
       .eq('lastfm_username', lastfmUsername)
@@ -81,7 +90,7 @@ export const supabaseService = {
 
     let userId = user?.id;
     if (!userId) {
-      const { data: newUser, error: createError } = await supabase
+      const { data: newUser, error: createError } = await sb
         .from('users')
         .insert({ lastfm_username: lastfmUsername })
         .select('id')
@@ -90,7 +99,7 @@ export const supabaseService = {
       if (createError) throw createError;
       userId = newUser.id;
     }
-    const { data: existingYearlyData, error: yearlyError } = await supabase
+    const { data: existingYearlyData, error: yearlyError } = await sb
       .from('yearly_data')
       .select('id')
       .eq('user_id', userId)
@@ -100,7 +109,7 @@ export const supabaseService = {
 
     let yearlyDataId;
     if (yearlyError && yearlyError.code === 'PGRST116') {
-      const { data: newYearlyData, error: insertError } = await supabase
+      const { data: newYearlyData, error: insertError } = await sb
         .from('yearly_data')
         .insert({
           user_id: userId,
@@ -117,13 +126,13 @@ export const supabaseService = {
     } else {
       yearlyDataId = existingYearlyData.id;
     }
-    const { error: deleteError } = await supabase
+    const { error: deleteError } = await sb
       .from('monthly_entries')
       .delete()
       .eq('yearly_data_id', yearlyDataId);
 
     if (deleteError) throw deleteError;
-    const { error: entriesError } = await supabase
+    const { error: entriesError } = await sb
       .from('monthly_entries')
       .insert(
         entries.map(entry => ({
