@@ -9,3 +9,5 @@ This project was made using the following technologies:
 - NextJs
 - Sass
 - RadixUI
+- Supabase
+- Playwright

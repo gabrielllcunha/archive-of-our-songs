@@ -1,18 +1,13 @@
 import styles from "./styles.module.scss";
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { ArchiveIcon, CalendarIcon, ListBulletIcon } from "@radix-ui/react-icons";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { CalendarIcon, DotsVerticalIcon, ListBulletIcon, UpdateIcon } from "@radix-ui/react-icons";
 import { Album, Singer, Song } from "@/models";
-import { Dialog, MonthItem, Progress, SegmentedControl, Select, Tabs, TabsContent, TabsList, TabsTrigger } from '@/components';
+import { Button, MonthItem, Popover, Progress, SegmentedControl, Select, Tabs, TabsContent, TabsList, TabsTrigger } from '@/components';
 import { fetchDataFromEndpoint } from "@/utils/fetchDataFromEndpoint";
-import { db } from "@/utils/indexedDB";
+import { yearlyDataStorage } from '@/services/yearlyDataStorage';
+import { ModalExtraContent } from "../ModalExtraContent";
+import { ModalInitialConfig } from "../ModalInitialConfig";
 
-type DataEntry = {
-  name?: string;
-  artist?: string;
-  scrobbles?: number;
-  imageUrl?: string;
-  month?: number;
-}
 export function HomePage() {
   const currentYear = new Date().getFullYear();
   const [activeTab, setActiveTab] = useState<string>("albums");
@@ -22,11 +17,14 @@ export function HomePage() {
   const [artists, setArtists] = useState<Singer[]>([]);
   const [songs, setSongs] = useState<Song[]>([]);
   const [loading, setLoading] = useState(false);
-  const [loadingProgress, setLoadingProgress] = useState(0);
+  const [authenticatedWithLastfm, setAuthenticatedWithLastfm] = useState<boolean>(false);
+  const [lastfmUsername, setLastfmUsername] = useState<string | null>(null);
   const months = useMemo(() => [
     "January", "February", "March", "April", "May", "June",
     "July", "August", "September", "October", "November", "December"
   ], []);
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const isRefreshingRef = useRef(false);
 
   const handleTabChange = (value: string) => {
     setActiveTab(value);
@@ -40,65 +38,156 @@ export function HomePage() {
     setViewType(value);
   };
 
+  const handleRefreshData = () => {
+    if (isRefreshingRef.current) return;
+    isRefreshingRef.current = true;
+    abortControllerRef.current?.abort();
+    abortControllerRef.current = new AbortController();
+    const { signal } = abortControllerRef.current;
+    const onFinally = () => { isRefreshingRef.current = false; };
+    let fetchPromise;
+    switch (activeTab) {
+      case "albums":
+        fetchPromise = fetchData("fetch-albums-by-month", setAlbums, signal, true);
+        break;
+      case "artists":
+        fetchPromise = fetchData("fetch-artists-by-month", setArtists, signal, true);
+        break;
+      case "songs":
+        fetchPromise = fetchData("fetch-songs-by-month", setSongs, signal, true);
+        break;
+      default:
+        fetchPromise = Promise.resolve();
+        break;
+    }
+    if (fetchPromise && typeof fetchPromise.finally === 'function') {
+      fetchPromise.finally(onFinally);
+    } else {
+      onFinally();
+    }
+  };
+
   const generateYearOptions = () => {
     const startYear = 2021;
     const years = [];
-    for (let i = startYear; i <= currentYear; i++) {
+    const latestSelectableYear = currentYear - 1;
+    for (let i = startYear; i <= latestSelectableYear; i++) {
       years.push({ value: String(i), label: String(i) });
     }
     return years;
   };
 
-  const fetchData = useCallback(async (endpoint: string, setter: React.Dispatch<React.SetStateAction<any[]>>, signal: AbortSignal) => {
+  const fetchData = useCallback(async (endpoint: string, setter: React.Dispatch<React.SetStateAction<any[]>>, signal: AbortSignal, forceRefresh = false) => {
     try {
       setLoading(true);
-      const storeName =
-        endpoint === "fetch-albums-by-month" ? "albums" :
-          endpoint === "fetch-artists-by-month" ? "artists" :
-            endpoint === "fetch-songs-by-month" ? "songs" :
-              '';
+      const username = localStorage.getItem('lastfm_username');
+      if (!username) {
+        return;
+      }
+      if (!forceRefresh) {
+        const storedData = await yearlyDataStorage.getYearlyData(
+          username,
+          year,
+          endpoint === "fetch-albums-by-month" ? "albums" :
+            endpoint === "fetch-artists-by-month" ? "artists" : "songs"
+        );
 
-      const cachedData: DataEntry[] = await db.getData(storeName, year);
+        if (storedData && storedData.length > 0) {
+          setter(storedData);
+          return;
+        }
+      }
+      const storedData = await yearlyDataStorage.getYearlyData(
+        username,
+        year,
+        endpoint === "fetch-albums-by-month" ? "albums" :
+          endpoint === "fetch-artists-by-month" ? "artists" : "songs"
+      );
       const currentDate = new Date();
       const currentMonth = currentDate.getMonth() + 1;
       const futureMonths = [];
       if (year === currentYear) {
         for (let month = currentMonth; month <= 12; month++) {
-          futureMonths.push(month);
+          futureMonths.push(months[month - 1]);
         }
       } else if (year > currentYear) {
         for (let month = 1; month <= 12; month++) {
-          futureMonths.push(month);
+          futureMonths.push(months[month - 1]);
         }
       }
-      const futureMonthsList = futureMonths.map(month => months[month - 1]);
-      const incorrectCacheData = cachedData && cachedData
-        .filter(entry =>
-          !entry.name ||
-          (endpoint !== "fetch-artists-by-month" && !entry.artist) ||
-          entry.scrobbles === 0 ||
-          !entry.imageUrl
-        )
-        .map(entry => entry.month);
-      const missingMonths = Array.from(new Set([...futureMonthsList, ...(incorrectCacheData || [])]));
-      if (cachedData && missingMonths.length === 0) {
-        setter(cachedData);
+      const incorrectCacheData = storedData?.filter(entry =>
+        !entry.name ||
+        (endpoint !== "fetch-artists-by-month" && !entry.artist) ||
+        entry.scrobbles === 0 ||
+        !entry.imageUrl
+      ).map(entry => entry.month) || [];
+      let monthsPayload = undefined;
+      if (forceRefresh) {
+        monthsPayload = months;
+      } else if (year === currentYear) {
+        const currentMonthNameIndex = new Date().getMonth();
+        monthsPayload = months.slice(0, currentMonthNameIndex + 1);
+      } else if (storedData) {
+        monthsPayload = incorrectCacheData;
+        if (storedData) {
+          const allMonths = months;
+          const missingMonths = allMonths.filter(month => !storedData.some(data => data.month === month));
+          monthsPayload = Array.from(new Set([...(monthsPayload || []), ...missingMonths]));
+        }
+      }
+      if (storedData && (!monthsPayload || monthsPayload.length === 0)) {
+        setter(storedData);
         return;
       }
       const payload = {
-        username: process.env.NEXT_PUBLIC_ACCOUNT_LOGIN,
-        password: process.env.NEXT_PUBLIC_ACCOUNT_PASSWORD,
-        target_account: process.env.NEXT_PUBLIC_TARGET_ACCOUNT_USER,
+        target_account: username,
         year,
-        ...(cachedData && { months: missingMonths }),
+        ...(monthsPayload && { months: monthsPayload }),
+        ...(forceRefresh && { forceRefresh: true }),
       };
-      const data: DataEntry[] = await fetchDataFromEndpoint(endpoint, payload, signal);
-      const updatedData = cachedData ? cachedData.map(entry => {
-        const newEntry = data.find(d => d.month === entry.month);
-        return newEntry ? newEntry : entry;
-      }) : data;
-      await db.storeData(storeName, year, updatedData);
-      setter(updatedData);
+      const data = await fetchDataFromEndpoint(endpoint, payload, signal);
+      if (storedData) {
+        let monthsToDisplay = months;
+        if (year === currentYear) {
+          const currentMonthNameIndex = new Date().getMonth();
+          monthsToDisplay = months.slice(0, currentMonthNameIndex + 1);
+        }
+        const mergedData = monthsToDisplay.map(monthName => {
+          return (
+            data.find((item: Album | Singer | Song) => item.month === monthName) ||
+            storedData.find((item: Album | Singer | Song) => item.month === monthName) ||
+            { month: monthName, name: '', artist: '', imageUrl: '', scrobbles: 0 }
+          );
+        });
+        setter(mergedData);
+        await yearlyDataStorage.storeYearlyData(
+          username,
+          year,
+          endpoint === "fetch-albums-by-month" ? "albums" :
+            endpoint === "fetch-artists-by-month" ? "artists" : "songs",
+          mergedData
+        );
+      } else {
+        let monthsToDisplay = months;
+        if (year === currentYear) {
+          const currentMonthNameIndex = new Date().getMonth();
+          monthsToDisplay = months.slice(0, currentMonthNameIndex + 1);
+        }
+        const fullData = monthsToDisplay.map(monthName => {
+          return (
+            data.find((item: Album | Singer | Song) => item.month === monthName) ||
+            { month: monthName, name: '', artist: '', imageUrl: '', scrobbles: 0 }
+          );
+        });
+        setter(fullData);
+        await yearlyDataStorage.storeYearlyData(
+          username,
+          year,
+          endpoint === "fetch-albums-by-month" ? "albums" :
+            endpoint === "fetch-artists-by-month" ? "artists" : "songs",
+          fullData
+        );
+      }
     } catch (error) {
       console.error(`Error fetching from ${endpoint}:`, error);
       switch (endpoint) {
@@ -117,11 +206,13 @@ export function HomePage() {
     } finally {
       setLoading(false);
     }
-  }, [year, currentYear, months]);
+  }, [year, months, currentYear]);
 
   useEffect(() => {
-    const abortController = new AbortController();
-    const { signal } = abortController;
+    if (!authenticatedWithLastfm) return;
+    abortControllerRef.current?.abort();
+    abortControllerRef.current = new AbortController();
+    const { signal } = abortControllerRef.current;
     const debounceTime = setTimeout(() => {
       switch (activeTab) {
         case "albums":
@@ -139,9 +230,27 @@ export function HomePage() {
     }, 500);
     return () => {
       clearTimeout(debounceTime);
-      abortController.abort();
+      abortControllerRef.current?.abort();
     };
-  }, [activeTab, year, fetchData]);
+  }, [activeTab, year, fetchData, authenticatedWithLastfm]);
+
+  useEffect(() => {
+    if (!authenticatedWithLastfm) {
+      setLastfmUsername(null);
+      return;
+    }
+    setLastfmUsername(localStorage.getItem("lastfm_username"));
+  }, [authenticatedWithLastfm]);
+
+  const handleLogout = () => {
+    localStorage.removeItem("lastfm_username");
+    localStorage.removeItem("lastfm_token");
+    localStorage.removeItem("lastfm_auth_started");
+    setAuthenticatedWithLastfm(false);
+    setAlbums([]);
+    setArtists([]);
+    setSongs([]);
+  };
 
   const renderProgressBar = (name: string) => {
     return (
@@ -164,8 +273,8 @@ export function HomePage() {
           renderProgressBar(name)
         ) : (
           <div className={styles.monthsGrid}>
-            {months.map((month, index) => {
-              const item = items ? items[index] : null;
+            {months.map((month) => {
+              const item = items?.find(item => item.month === month) || null;
               return (
                 <MonthItem
                   key={month}
@@ -198,51 +307,68 @@ export function HomePage() {
           <div className={styles.gradient1}></div>
           <div className={styles.gradient2}></div>
         </div>
-        <div className={styles.mainWrapper}>
-          <div className={styles.headerWrapper}>
-            <h1>Archive of Our Songs</h1>
-            <Select
-              value={String(year)}
-              onChange={handleYearChange}
-              items={generateYearOptions()}
-            />
-          </div>
-          <div className={styles.contentWrapper}>
-            <Tabs defaultValue={activeTab} onValueChange={handleTabChange}>
-              <TabsList sideIcons>
-                <TabsTrigger value="albums">Albums</TabsTrigger>
-                <TabsTrigger value="artists">Artists</TabsTrigger>
-                <TabsTrigger value="songs">Songs</TabsTrigger>
-                <div className={styles.sideIcons}>
-                  <SegmentedControl.Root
-                    defaultValue="month"
-                    size="1"
-                    onValueChange={handleViewTypeChange}
-                  >
-                    <SegmentedControl.Item value="month">
-                      <CalendarIcon />
-                    </SegmentedControl.Item>
-                    <SegmentedControl.Item value="list">
-                      <ListBulletIcon />
-                    </SegmentedControl.Item>
-                  </SegmentedControl.Root>
-                </div>
-              </TabsList>
-              {renderTabsContent("albums", albums)}
-              {renderTabsContent("artists", artists)}
-              {renderTabsContent("songs", songs)}
-            </Tabs>
-          </div>
-          <Dialog trigger={
-            <div className={styles.secretIcon}>
-              <ArchiveIcon height={24} width={24} />
+        {authenticatedWithLastfm && (
+          <div className={styles.mainWrapper}>
+            <div className={styles.headerWrapper}>
+              <h1>Archive of Our Songs</h1>
+              <Select
+                value={String(year)}
+                onChange={handleYearChange}
+                items={generateYearOptions()}
+              />
             </div>
-          }>
-            <div className={styles.dialogContent}>
-              <span>Coming soon...</span>
+            <div className={styles.contentWrapper}>
+              <Tabs defaultValue={activeTab} onValueChange={handleTabChange}>
+                <TabsList sideIcons>
+                  <TabsTrigger value="albums">Albums</TabsTrigger>
+                  <TabsTrigger value="artists">Artists</TabsTrigger>
+                  <TabsTrigger value="songs">Songs</TabsTrigger>
+                  <Button variant="secondary" size="small" className={styles.refreshButton} onClick={handleRefreshData} disabled={loading}>
+                    <UpdateIcon style={{ marginRight: '8px', width: '14px', height: '14px' }} />
+                    Refresh Data
+                  </Button>
+                  <div className={styles.sideIcons}>
+                    <SegmentedControl.Root
+                      defaultValue="month"
+                      size="1"
+                      onValueChange={handleViewTypeChange}
+                    >
+                      <SegmentedControl.Item value="month">
+                        <CalendarIcon />
+                      </SegmentedControl.Item>
+                      <SegmentedControl.Item value="list">
+                        <ListBulletIcon />
+                      </SegmentedControl.Item>
+                    </SegmentedControl.Root>
+                  </div>
+                </TabsList>
+                {renderTabsContent("albums", albums)}
+                {renderTabsContent("artists", artists)}
+                {renderTabsContent("songs", songs)}
+              </Tabs>
             </div>
-          </Dialog>
-        </div>
+            <ModalExtraContent />
+          </div>
+        )}
+        {authenticatedWithLastfm && lastfmUsername && (
+          <div className={styles.loggedAs}>
+            <span>logged as {lastfmUsername}</span>
+            <Popover
+              side="top"
+              align="start"
+              trigger={
+                <button type="button" className={styles.dotsButton} aria-label="User options">
+                  <DotsVerticalIcon />
+                </button>
+              }
+            >
+              <button type="button" className={styles.popoverItem} onClick={handleLogout}>
+                Logout
+              </button>
+            </Popover>
+          </div>
+        )}
+        <ModalInitialConfig authenticatedWithLastfm={authenticatedWithLastfm} setAuthenticatedWithLastfm={setAuthenticatedWithLastfm} />
       </div>
     </>
   );
