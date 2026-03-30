@@ -81,7 +81,6 @@ export function HomePage() {
       setLoading(true);
       const username = localStorage.getItem('lastfm_username');
       if (!username) {
-        setAuthenticatedWithLastfm(false);
         return;
       }
       if (!forceRefresh) {
@@ -140,8 +139,6 @@ export function HomePage() {
         return;
       }
       const payload = {
-        username: process.env.NEXT_PUBLIC_ACCOUNT_LOGIN,
-        password: process.env.NEXT_PUBLIC_ACCOUNT_PASSWORD,
         target_account: username,
         year,
         ...(monthsPayload && { months: monthsPayload }),
@@ -211,6 +208,7 @@ export function HomePage() {
   }, [year, months, currentYear]);
 
   useEffect(() => {
+    if (!authenticatedWithLastfm) return;
     abortControllerRef.current?.abort();
     abortControllerRef.current = new AbortController();
     const { signal } = abortControllerRef.current;
@@ -233,7 +231,7 @@ export function HomePage() {
       clearTimeout(debounceTime);
       abortControllerRef.current?.abort();
     };
-  }, [activeTab, year, fetchData]);
+  }, [activeTab, year, fetchData, authenticatedWithLastfm]);
 
   const renderProgressBar = (name: string) => {
     return (

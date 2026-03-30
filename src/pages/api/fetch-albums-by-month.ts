@@ -8,7 +8,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { username, password, year, target_account, months, forceRefresh } = req.body;
+  const { year, target_account, months, forceRefresh } = req.body;
+  const username = process.env.ACCOUNT_LOGIN;
+  const password = process.env.ACCOUNT_PASSWORD;
 
   if (!username || !password || !target_account) {
     return res.status(400).json({ error: 'Required authentication details are missing' });
