@@ -6,3 +6,4 @@ export * from './Progress';
 export * from './SegmentedControl';
 export * from './Select';
 export * from './Tabs';
+export * from './Popover';

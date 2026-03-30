@@ -1,8 +1,8 @@
 import styles from "./styles.module.scss";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { CalendarIcon, ListBulletIcon, UpdateIcon } from "@radix-ui/react-icons";
+import { CalendarIcon, DotsVerticalIcon, ListBulletIcon, UpdateIcon } from "@radix-ui/react-icons";
 import { Album, Singer, Song } from "@/models";
-import { Button, MonthItem, Progress, SegmentedControl, Select, Tabs, TabsContent, TabsList, TabsTrigger } from '@/components';
+import { Button, MonthItem, Popover, Progress, SegmentedControl, Select, Tabs, TabsContent, TabsList, TabsTrigger } from '@/components';
 import { fetchDataFromEndpoint } from "@/utils/fetchDataFromEndpoint";
 import { yearlyDataStorage } from '@/services/yearlyDataStorage';
 import { ModalExtraContent } from "../ModalExtraContent";
@@ -18,6 +18,7 @@ export function HomePage() {
   const [songs, setSongs] = useState<Song[]>([]);
   const [loading, setLoading] = useState(false);
   const [authenticatedWithLastfm, setAuthenticatedWithLastfm] = useState<boolean>(false);
+  const [lastfmUsername, setLastfmUsername] = useState<string | null>(null);
   const months = useMemo(() => [
     "January", "February", "March", "April", "May", "June",
     "July", "August", "September", "October", "November", "December"
@@ -233,6 +234,24 @@ export function HomePage() {
     };
   }, [activeTab, year, fetchData, authenticatedWithLastfm]);
 
+  useEffect(() => {
+    if (!authenticatedWithLastfm) {
+      setLastfmUsername(null);
+      return;
+    }
+    setLastfmUsername(localStorage.getItem("lastfm_username"));
+  }, [authenticatedWithLastfm]);
+
+  const handleLogout = () => {
+    localStorage.removeItem("lastfm_username");
+    localStorage.removeItem("lastfm_token");
+    localStorage.removeItem("lastfm_auth_started");
+    setAuthenticatedWithLastfm(false);
+    setAlbums([]);
+    setArtists([]);
+    setSongs([]);
+  };
+
   const renderProgressBar = (name: string) => {
     return (
       <div className={styles.loadingWrapper}>
@@ -329,6 +348,24 @@ export function HomePage() {
               </Tabs>
             </div>
             <ModalExtraContent />
+          </div>
+        )}
+        {authenticatedWithLastfm && lastfmUsername && (
+          <div className={styles.loggedAs}>
+            <span>logged as {lastfmUsername}</span>
+            <Popover
+              side="top"
+              align="start"
+              trigger={
+                <button type="button" className={styles.dotsButton} aria-label="User options">
+                  <DotsVerticalIcon />
+                </button>
+              }
+            >
+              <button type="button" className={styles.popoverItem} onClick={handleLogout}>
+                Logout
+              </button>
+            </Popover>
           </div>
         )}
         <ModalInitialConfig authenticatedWithLastfm={authenticatedWithLastfm} setAuthenticatedWithLastfm={setAuthenticatedWithLastfm} />

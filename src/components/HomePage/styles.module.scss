@@ -82,6 +82,53 @@
   position: relative;
 }
 
+.loggedAs {
+  position: fixed;
+  left: 12px;
+  bottom: 12px;
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 9px;
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 0.82rem;
+}
+
+.dotsButton {
+  border: none;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.85);
+  cursor: pointer;
+  padding: 3px 5px;
+  border-radius: 7px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dotsButton:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.popoverItem {
+  width: 100%;
+  border: none;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.9);
+  cursor: pointer;
+  padding: 8px 10px;
+  border-radius: 8px;
+  text-align: left;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.popoverItem:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
 .headerWrapper {
   display: flex;
   flex-direction: column;
