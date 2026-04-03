@@ -1,6 +1,6 @@
 import { ArchiveIcon, ChevronLeftIcon, ChevronRightIcon, Cross2Icon } from "@radix-ui/react-icons";
 import { HiOutlinePaperClip } from "react-icons/hi";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import { Album } from "@/models";
 import { secretPagesStorage } from "@/services/secretPagesStorage";
@@ -75,6 +75,15 @@ export function ModalExtraContent({ year, albums }: ModalExtraContentProps) {
       .catch(() => { });
   }, [year]);
 
+  useLayoutEffect(() => {
+    if (!localStorage.getItem("lastfm_username")) return;
+    if (audioBlobUrlRef.current) {
+      URL.revokeObjectURL(audioBlobUrlRef.current);
+      audioBlobUrlRef.current = null;
+    }
+    setAudioSrc(null);
+  }, [year, selectedMonth, audioReloadNonce]);
+
   useEffect(() => {
     const username = localStorage.getItem("lastfm_username");
     if (!username) {
@@ -88,10 +97,6 @@ export function ModalExtraContent({ year, albums }: ModalExtraContentProps) {
     }
 
     let cancelled = false;
-    if (audioBlobUrlRef.current) {
-      URL.revokeObjectURL(audioBlobUrlRef.current);
-      audioBlobUrlRef.current = null;
-    }
 
     setLoadingContent(true);
     setUploadError(null);
@@ -179,7 +184,7 @@ export function ModalExtraContent({ year, albums }: ModalExtraContentProps) {
       el.removeEventListener("loadedmetadata", beginPlayback);
       el.pause();
     };
-  }, [audioSrc, year, selectedMonth, audioUi.startSeconds, dialogPlaybackNonce]);
+  }, [audioSrc, audioUi.startSeconds, dialogPlaybackNonce]);
 
   useEffect(() => {
     setImageLoading(Boolean(backgroundImageUrl));
