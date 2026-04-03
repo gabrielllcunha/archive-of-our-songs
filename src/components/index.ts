@@ -7,3 +7,4 @@ export * from './SegmentedControl';
 export * from './Select';
 export * from './Tabs';
 export * from './Popover';
+export * from './Spinner';

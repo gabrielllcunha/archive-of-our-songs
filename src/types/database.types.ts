@@ -81,6 +81,47 @@ export interface Database {
           created_at?: string
         }
       }
+      secret_pages: {
+        Row: {
+          id: string
+          user_id: string
+          year: number
+          month: string
+          content: string
+          audio_storage_path: string | null
+          album_cover_url: string | null
+          audio_original_filename: string | null
+          audio_start_seconds: number
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          year: number
+          month: string
+          content?: string
+          audio_storage_path?: string | null
+          album_cover_url?: string | null
+          audio_original_filename?: string | null
+          audio_start_seconds?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          year?: number
+          month?: string
+          content?: string
+          audio_storage_path?: string | null
+          album_cover_url?: string | null
+          audio_original_filename?: string | null
+          audio_start_seconds?: number
+          created_at?: string
+          updated_at?: string
+        }
+      }
     }
   }
 } 

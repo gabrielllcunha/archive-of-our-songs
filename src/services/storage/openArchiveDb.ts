@@ -1,4 +1,4 @@
-import { IDB_NAME, IDB_SCHEMA_VERSION, STORE_YEARLY_DATA } from './schema';
+import { IDB_NAME, IDB_SCHEMA_VERSION, STORE_SECRET_PAGES, STORE_YEARLY_DATA } from './schema';
 
 export function openArchiveDb(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
@@ -13,6 +13,9 @@ export function openArchiveDb(): Promise<IDBDatabase> {
       const db = (event.target as IDBOpenDBRequest).result;
       if (!db.objectStoreNames.contains(STORE_YEARLY_DATA)) {
         db.createObjectStore(STORE_YEARLY_DATA);
+      }
+      if (!db.objectStoreNames.contains(STORE_SECRET_PAGES)) {
+        db.createObjectStore(STORE_SECRET_PAGES);
       }
     };
   });

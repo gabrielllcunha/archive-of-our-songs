@@ -11,9 +11,398 @@
   transform: scale(1.1);
 }
 
+.dialogContainer {
+  width: min(86vw, 86vh) !important;
+  height: min(86vw, 86vh) !important;
+  max-width: min(86vw, 86vh) !important;
+  padding: 0 !important;
+  overflow: hidden;
+}
+
 .dialogContent {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 100%;
   display: flex;
-  justify-content: center;
+  flex-direction: column;
+}
+
+.albumBackgroundImage {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.foregroundContent {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  align-items: stretch;
+}
+
+.leftPanel {
+  box-sizing: border-box;
+  flex: 0 0 35%;
+  width: 35%;
+  min-height: 100%;
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 24px;
+  border-top-left-radius: 12px;
+  border-bottom-left-radius: 12px;
+  overflow: hidden;
+  background: linear-gradient(
+    90deg,
+    rgba(8, 8, 8, 0.55) 0%,
+    rgba(8, 8, 8, 0.55) 78%,
+    rgba(8, 8, 8, 0.535) 81%,
+    rgba(8, 8, 8, 0.48) 84%,
+    rgba(8, 8, 8, 0.42) 86.5%,
+    rgba(8, 8, 8, 0.36) 88.5%,
+    rgba(8, 8, 8, 0.3) 90.5%,
+    rgba(8, 8, 8, 0.24) 92%,
+    rgba(8, 8, 8, 0.18) 93.5%,
+    rgba(8, 8, 8, 0.12) 95%,
+    rgba(8, 8, 8, 0.07) 96.5%,
+    rgba(8, 8, 8, 0.04) 97.75%,
+    rgba(8, 8, 8, 0.015) 99%,
+    rgba(8, 8, 8, 0) 100%
+  );
+  backdrop-filter: blur(10px);
+  mask-image: linear-gradient(
+    90deg,
+    #000 0%,
+    #000 78%,
+    rgba(0, 0, 0, 0.996) 81%,
+    rgba(0, 0, 0, 0.985) 83%,
+    rgba(0, 0, 0, 0.96) 85%,
+    rgba(0, 0, 0, 0.9) 87%,
+    rgba(0, 0, 0, 0.82) 89%,
+    rgba(0, 0, 0, 0.72) 90.5%,
+    rgba(0, 0, 0, 0.6) 92%,
+    rgba(0, 0, 0, 0.47) 93.5%,
+    rgba(0, 0, 0, 0.34) 95%,
+    rgba(0, 0, 0, 0.22) 96.25%,
+    rgba(0, 0, 0, 0.12) 97.5%,
+    rgba(0, 0, 0, 0.05) 98.75%,
+    transparent 100%
+  );
+  -webkit-mask-image: linear-gradient(
+    90deg,
+    #000 0%,
+    #000 78%,
+    rgba(0, 0, 0, 0.996) 81%,
+    rgba(0, 0, 0, 0.985) 83%,
+    rgba(0, 0, 0, 0.96) 85%,
+    rgba(0, 0, 0, 0.9) 87%,
+    rgba(0, 0, 0, 0.82) 89%,
+    rgba(0, 0, 0, 0.72) 90.5%,
+    rgba(0, 0, 0, 0.6) 92%,
+    rgba(0, 0, 0, 0.47) 93.5%,
+    rgba(0, 0, 0, 0.34) 95%,
+    rgba(0, 0, 0, 0.22) 96.25%,
+    rgba(0, 0, 0, 0.12) 97.5%,
+    rgba(0, 0, 0, 0.05) 98.75%,
+    transparent 100%
+  );
+}
+
+.rightSpacer {
+  flex: 1;
+  min-width: 0;
+  align-self: stretch;
+}
+
+.monthHeader {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-rows: auto auto;
+  column-gap: 10px;
+  row-gap: 6px;
   align-items: center;
-  height: 50vh;
+  justify-items: center;
+}
+
+.monthArrowLeft {
+  grid-column: 1;
+  grid-row: 1;
+}
+
+.monthArrowRight {
+  grid-column: 3;
+  grid-row: 1;
+}
+
+.monthArrow {
+  border: none;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.85);
+  cursor: pointer;
+  border-radius: 8px;
+  padding: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.monthArrow:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.monthArrow:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+  background: transparent;
+}
+
+.monthTitle {
+  grid-column: 2;
+  grid-row: 1;
+  font-size: 1.75rem;
+  font-weight: 800;
+  line-height: 1.1;
+  letter-spacing: -0.03em;
+  text-align: center;
+  color: #fff;
+}
+
+.monthYear {
+  grid-column: 2;
+  grid-row: 2;
+  justify-self: center;
+  font-size: 0.68rem;
+  font-weight: 400;
+  line-height: 1.25;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.38);
+}
+
+.diaryText {
+  flex: 1;
+  min-height: 0;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  padding: 10px;
+  font-size: 0.83rem;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  overflow-y: auto;
+  color: rgba(255, 255, 255, 0.85);
+  transition: background-color 0.2s ease, opacity 0.2s ease;
+}
+
+.diaryText:hover {
+  background-color: rgba(255, 255, 255, 0.06);
+  opacity: 0.5;
+  cursor: text;
+}
+
+.diaryInput {
+  flex: 1;
+  min-height: 0;
+  border: none;
+  border-radius: 10px;
+  padding: 10px;
+  font-size: 0.83rem;
+  line-height: 1.45;
+  resize: none;
+  overflow-y: auto;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.9);
+  outline: none;
+}
+
+.albumImageLoading {
+  opacity: 0;
+}
+
+.imageLoadingOverlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  z-index: 3;
+}
+
+.hiddenAudio {
+  position: absolute;
+  width: 0;
+  height: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.hiddenFileInput {
+  position: absolute;
+  width: 0;
+  height: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.mediaRow {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  align-self: stretch;
+  width: 100%;
+  min-width: 0;
+  gap: 6px;
+}
+
+.mediaButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  width: 100%;
+  min-width: 0;
+  gap: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.88);
+  font-size: 0.8rem;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  text-transform: none;
+  padding: 8px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.mediaButtonIcon {
+  flex-shrink: 0;
+  width: 1.1em;
+  height: 1.1em;
+}
+
+.mediaButton:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.35);
+}
+
+.mediaButton:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.soundtrackRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.soundtrackName {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.9);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.soundtrackRemove {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: none;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.85);
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.soundtrackRemove:hover:not(:disabled) {
+  background: rgba(255, 80, 80, 0.35);
+  color: #fff;
+}
+
+.soundtrackRemove:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.startTimeRow {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+  width: 100%;
+}
+
+.startTimeLabel {
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.startTimeInput {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.25);
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 0.85rem;
+  outline: none;
+}
+
+.startTimeInput:focus {
+  border-color: rgba(255, 255, 255, 0.45);
+}
+
+.startTimeHint {
+  font-size: 0.65rem;
+  line-height: 1.35;
+  color: rgba(255, 255, 255, 0.38);
+}
+
+.uploadHint {
+  font-size: 0.72rem;
+  line-height: 1.35;
+  color: rgba(255, 200, 120, 0.95);
+  max-width: 100%;
+}
+
+.imagePlaceholder {
+  position: absolute;
+  inset: 0;
+  border: 1px dashed rgba(255, 255, 255, 0.18);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 0.9rem;
+  text-align: center;
+  padding: 16px;
+  background: rgba(8, 8, 8, 0.75);
 }

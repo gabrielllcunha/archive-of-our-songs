@@ -347,7 +347,7 @@ export function HomePage() {
                 {renderTabsContent("songs", songs)}
               </Tabs>
             </div>
-            <ModalExtraContent />
+            <ModalExtraContent year={year} albums={albums} />
           </div>
         )}
         {authenticatedWithLastfm && lastfmUsername && (

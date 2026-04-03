@@ -11,6 +11,7 @@ interface DialogProps {
     onClose?: () => void;
     initialConfig?: boolean;
     allowClose?: boolean;
+    contentClassName?: string;
 }
 
 export function Dialog({
@@ -20,7 +21,8 @@ export function Dialog({
     onOpenChange,
     onClose,
     initialConfig,
-    allowClose = true
+    allowClose = true,
+    contentClassName
 }: DialogProps) {
     const handleOpenChange = (open: boolean) => {
         if (allowClose || open) {
@@ -28,6 +30,8 @@ export function Dialog({
             if (!open) {
                 onClose?.();
             }
+        } else if (!open) {
+            onOpenChange?.(open);
         }
     };
 
@@ -40,7 +44,7 @@ export function Dialog({
                         [styles.initialConfigOverlay]: initialConfig,
                     })}
                 />
-                <RadixDialog.Content className={styles.content}>
+                <RadixDialog.Content className={classNames(styles.content, contentClassName)}>
                     {allowClose && (
                         <RadixDialog.Close className={styles.closeButton}>
                             <Cross2Icon />
