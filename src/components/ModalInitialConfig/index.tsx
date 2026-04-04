@@ -1,7 +1,9 @@
-import { useEffect, useMemo, useState, useCallback } from "react";
+import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { Dialog } from "@/components";
 import styles from "./styles.module.scss";
 import { CheckCircledIcon, LockClosedIcon, ReloadIcon } from "@radix-ui/react-icons";
+import { supabase } from "@/utils/supabase";
+import { applyBootstrapSession } from "@/utils/supabaseSession";
 
 interface ModalInitialConfigProps {
   authenticatedWithLastfm: boolean;
@@ -44,27 +46,79 @@ export function ModalInitialConfig({ authenticatedWithLastfm, setAuthenticatedWi
 
   const [validationStep, setValidationStep] = useState<ValidationStep>("idle");
   const [pendingLastfmToken, setPendingLastfmToken] = useState<string | null>(null);
-  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
-  const [turnstileVerified, setTurnstileVerified] = useState(false);
+  const pendingLfTokenRef = useRef<string | null>(null);
+  const bootstrapLockRef = useRef(false);
 
-  const checkSession = useCallback(async (token: string) => {
-    try {
-      setValidationStep("lastfm");
-      const response = await fetch("/api/lastfm/get-session", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token }),
-      });
+  const runBootstrap = useCallback(
+    async (lastfmToken: string, tsToken?: string | null) => {
+      if (bootstrapLockRef.current) return;
+      bootstrapLockRef.current = true;
+      setIsLoading(true);
+      setError("");
+      setValidationStep(hasTurnstileConfigured ? "verifying" : "lastfm");
+      try {
+        const res = await fetch("/api/auth/bootstrap-supabase", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            lastfm_token: lastfmToken,
+            ...(tsToken ? { turnstile_token: tsToken } : {}),
+          }),
+        });
+        const data = (await res.json().catch(() => ({}))) as {
+          error?: string;
+          message?: string;
+          access_token?: string;
+          refresh_token?: string;
+          lastfm_username?: string;
+        };
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        console.error("Session error:", errorData);
-        throw new Error("Failed to get session");
-      }
+        if (res.status === 403 && data?.error === "WHITELIST_DENIED") {
+          setError(data?.message ?? "Sorry but your username isn't on whitelist");
+          setValidationStep("idle");
+          setPendingLastfmToken(null);
+          pendingLfTokenRef.current = null;
+          localStorage.removeItem("lastfm_token");
+          localStorage.removeItem("lastfm_auth_started");
+          try {
+            const url = new URL(window.location.href);
+            url.searchParams.delete("token");
+            window.history.replaceState({}, "", url.toString());
+          } catch {
 
-      const data = await response.json();
-      if (data.session?.name) {
-        localStorage.setItem("lastfm_username", data.session.name);
+          }
+          return;
+        }
+
+        if (!res.ok || !data.access_token || !data.refresh_token) {
+          const apiHint =
+            (typeof data.message === "string" && data.message.trim()) ||
+            (typeof data.error === "string" && data.error.trim()) ||
+            `Sign-in failed (HTTP ${res.status})`;
+          setError(apiHint);
+          setValidationStep("idle");
+          return;
+        }
+
+        try {
+          await applyBootstrapSession({
+            access_token: data.access_token,
+            refresh_token: data.refresh_token,
+          });
+        } catch (sessionErr) {
+          console.error(sessionErr);
+          setError(
+            sessionErr instanceof Error
+              ? sessionErr.message
+              : "Could not save your session. Check Supabase URL/anon key."
+          );
+          setValidationStep("idle");
+          return;
+        }
+
+        if (data.lastfm_username) {
+          localStorage.setItem("lastfm_username", data.lastfm_username);
+        }
         localStorage.removeItem("lastfm_token");
         localStorage.removeItem("lastfm_auth_started");
         try {
@@ -72,36 +126,75 @@ export function ModalInitialConfig({ authenticatedWithLastfm, setAuthenticatedWi
           url.searchParams.delete("token");
           window.history.replaceState({}, "", url.toString());
         } catch {
-        
+
         }
         setAuthenticatedWithLastfm(true);
-      } else {
-        throw new Error("No session name found");
+      } catch (e) {
+        console.error(e);
+        setError(
+          e instanceof Error && e.message
+            ? e.message
+            : "Failed to authenticate. Please try again."
+        );
+        setValidationStep("idle");
+      } finally {
+        setIsLoading(false);
+        bootstrapLockRef.current = false;
       }
-    } catch (error) {
-      console.error("Error checking session:", error);
-      setError("Failed to authenticate. Please try again.");
-    } finally {
-      setIsLoading(false);
-    }
-  }, [setAuthenticatedWithLastfm]);
+    },
+    [hasTurnstileConfigured, setAuthenticatedWithLastfm]
+  );
 
-  const verifyTurnstile = useCallback(async (token: string) => {
-    setValidationStep("verifying");
-    const response = await fetch("/api/bot/verify-turnstile", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ token }),
-    });
+  useEffect(() => {
+    if (authenticatedWithLastfm) return;
 
-    if (!response.ok) {
-      const data = await response.json().catch(() => null);
-      console.error("Turnstile verification failed:", data);
-      throw new Error("Turnstile verification failed");
-    }
+    let cancelled = false;
 
-    setTurnstileVerified(true);
-  }, []);
+    (async () => {
+      if (supabase) {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (cancelled) return;
+        if (session?.user) {
+          const name = session.user.user_metadata?.lastfm_username as string | undefined;
+          if (name) {
+            localStorage.setItem("lastfm_username", name);
+          }
+          setAuthenticatedWithLastfm(true);
+          return;
+        }
+      }
+
+      localStorage.removeItem("lastfm_username");
+
+      const urlParams = new URLSearchParams(window.location.search);
+      const token = urlParams.get("token") || localStorage.getItem("lastfm_token");
+      const authStarted = localStorage.getItem("lastfm_auth_started");
+      if (!token) return;
+      if (!authStarted) {
+        try {
+          const url = new URL(window.location.href);
+          url.searchParams.delete("token");
+          window.history.replaceState({}, "", url.toString());
+        } catch {
+
+        }
+        setValidationStep("idle");
+        return;
+      }
+
+      pendingLfTokenRef.current = token;
+      setPendingLastfmToken(token);
+      if (hasTurnstileConfigured) {
+        setValidationStep("captcha");
+      } else {
+        await runBootstrap(token);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [authenticatedWithLastfm, hasTurnstileConfigured, runBootstrap, setAuthenticatedWithLastfm]);
 
   const handleAuthenticateWithLastfm = async () => {
     if (!API_KEY || !CALLBACK_URL) {
@@ -135,42 +228,9 @@ export function ModalInitialConfig({ authenticatedWithLastfm, setAuthenticatedWi
   };
 
   useEffect(() => {
-    const username = localStorage.getItem("lastfm_username");
-    if (username) {
-      setAuthenticatedWithLastfm(true);
-      return;
-    }
-
-    const urlParams = new URLSearchParams(window.location.search);
-    const token = urlParams.get("token") || localStorage.getItem("lastfm_token");
-    const authStarted = localStorage.getItem("lastfm_auth_started");
-    if (token && !authenticatedWithLastfm) {
-      if (!authStarted) {
-        try {
-          const url = new URL(window.location.href);
-          url.searchParams.delete("token");
-          window.history.replaceState({}, "", url.toString());
-        } catch {
-        
-        }
-        setValidationStep("idle");
-        return;
-      }
-      setPendingLastfmToken(token);
-      if (hasTurnstileConfigured) {
-        setValidationStep("captcha");
-      } else {
-        setValidationStep("lastfm");
-        checkSession(token);
-      }
-    }
-  }, [authenticatedWithLastfm, setAuthenticatedWithLastfm, checkSession, hasTurnstileConfigured]);
-
-  useEffect(() => {
     if (!hasTurnstileConfigured) return;
     if (validationStep !== "captcha") return;
     if (!pendingLastfmToken) return;
-    if (turnstileVerified) return;
 
     let widgetId: string | number | null = null;
     let cancelled = false;
@@ -186,9 +246,14 @@ export function ModalInitialConfig({ authenticatedWithLastfm, setAuthenticatedWi
         container.innerHTML = "";
         widgetId = (window as any).turnstile.render(container, {
           sitekey: TURNSTILE_SITE_KEY,
-          callback: (token: string) => setTurnstileToken(token),
+          callback: (t: string) => {
+            const lf = pendingLfTokenRef.current;
+            if (lf) {
+              void runBootstrap(lf, t);
+            }
+          },
           "error-callback": () => setError("Robot validation failed. Please try again."),
-          "expired-callback": () => setTurnstileToken(null),
+          "expired-callback": () => setError("Robot validation expired. Please try again."),
           theme: "auto",
         });
       } catch (e) {
@@ -207,31 +272,7 @@ export function ModalInitialConfig({ authenticatedWithLastfm, setAuthenticatedWi
 
       }
     };
-  }, [TURNSTILE_SITE_KEY, hasTurnstileConfigured, pendingLastfmToken, turnstileVerified, validationStep]);
-
-  useEffect(() => {
-    if (!hasTurnstileConfigured) return;
-    if (!pendingLastfmToken) return;
-    if (!turnstileToken) return;
-    if (turnstileVerified) return;
-
-    (async () => {
-      try {
-        setIsLoading(true);
-        setError("");
-        await verifyTurnstile(turnstileToken);
-        await checkSession(pendingLastfmToken);
-      } catch (e) {
-        console.error(e);
-        setError("Validation failed. Please try again.");
-        setTurnstileToken(null);
-        setTurnstileVerified(false);
-        setValidationStep("captcha");
-      } finally {
-        setIsLoading(false);
-      }
-    })();
-  }, [checkSession, hasTurnstileConfigured, pendingLastfmToken, turnstileToken, turnstileVerified, verifyTurnstile]);
+  }, [TURNSTILE_SITE_KEY, hasTurnstileConfigured, pendingLastfmToken, validationStep, runBootstrap]);
 
   return (
     <Dialog
@@ -274,28 +315,12 @@ export function ModalInitialConfig({ authenticatedWithLastfm, setAuthenticatedWi
                 <span>Are we human? or are we robots? 🤖</span>
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                {validationStep === "lastfm" ? (
+                {validationStep === "lastfm" || validationStep === "verifying" ? (
                   <ReloadIcon className={styles.spinningIcon} />
                 ) : (
                   <CheckCircledIcon />
                 )}
-                <span>Validating token with Last.fm</span>
-              </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                {validationStep === "lastfm" ? (
-                  <ReloadIcon className={styles.spinningIcon} />
-                ) : (
-                  <CheckCircledIcon />
-                )}
-                <span>Getting user details</span>
-              </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                {validationStep === "verifying" ? (
-                  <ReloadIcon className={styles.spinningIcon} />
-                ) : (
-                  <CheckCircledIcon />
-                )}
-                <span>Retrieving your preferences</span>
+                <span>Signing you in securely</span>
               </div>
             </div>
 

@@ -1,5 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { getSupabaseAdmin } from '@/utils/supabaseAdmin';
+import { getSupabaseUserFromRequest } from '@/utils/server/getSupabaseUserFromRequest';
 import { audioObjectPath } from '@/utils/secretPageMonthIndex';
 
 export const config = {
@@ -17,20 +18,24 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
+  const authUser = await getSupabaseUserFromRequest(req);
+  if (!authUser) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
   const admin = getSupabaseAdmin();
   if (!admin) {
     return res.status(500).json({ error: 'Missing Supabase service configuration' });
   }
 
-  const { lastfm_username, year, month, audioBase64, audio_filename } = req.body as {
-    lastfm_username?: string;
+  const { year, month, audioBase64, audio_filename } = req.body as {
     year?: number;
     month?: string;
     audioBase64?: string;
     audio_filename?: string;
   };
 
-  if (!lastfm_username || typeof year !== 'number' || !month || !audioBase64) {
+  if (typeof year !== 'number' || !month || !audioBase64) {
     return res.status(400).json({ error: 'Invalid payload' });
   }
 
@@ -48,17 +53,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(400).json({ error: 'File too large (max 20MB)' });
   }
 
-  const { data: userRow, error: userErr } = await admin
-    .from('users')
-    .select('id')
-    .eq('lastfm_username', lastfm_username)
-    .single();
-
-  if (userErr || !userRow?.id) {
-    return res.status(404).json({ error: 'User not found' });
-  }
-
-  const userId = userRow.id as string;
+  const userId = authUser.user.id;
   const path = audioObjectPath(userId, year, month);
 
   const { error: upErr } = await admin.storage.from(BUCKET).upload(path, buffer, {

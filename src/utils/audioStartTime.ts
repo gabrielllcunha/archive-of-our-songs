@@ -1,4 +1,3 @@
-/** Parse "m:ss", "mm:ss", or "h:mm:ss" into seconds. Returns null if invalid. */
 export function parseTimeToSeconds(input: string): number | null {
   const t = input.trim();
   if (t === '') return 0;

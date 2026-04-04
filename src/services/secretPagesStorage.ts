@@ -1,4 +1,5 @@
 import { supabase } from '@/utils/supabase';
+import { getAccessTokenForFetch } from '@/utils/supabaseSession';
 import * as idbSecretPages from '@/services/storage/idbSecretPages';
 
 export type SecretPageRecord = {
@@ -19,29 +20,13 @@ const emptyRecord = (): SecretPageRecord => ({
   audio_blob: null,
 });
 
-async function getOrCreateUserId(lastfmUsername: string) {
+async function requireSessionUserId(): Promise<string> {
   if (!supabase) throw new Error('Supabase is not configured');
-
-  const { data: user, error: userError } = await supabase
-    .from('users')
-    .select('id')
-    .eq('lastfm_username', lastfmUsername)
-    .single();
-
-  if (userError && userError.code !== 'PGRST116') {
-    throw userError;
+  const { data: { session }, error } = await supabase.auth.getSession();
+  if (error || !session?.user?.id) {
+    throw new Error('Not authenticated');
   }
-
-  if (user?.id) return user.id;
-
-  const { data: createdUser, error: createError } = await supabase
-    .from('users')
-    .insert({ lastfm_username: lastfmUsername })
-    .select('id')
-    .single();
-
-  if (createError) throw createError;
-  return createdUser.id;
+  return session.user.id;
 }
 
 function isBrowserIndexedDbAvailable() {
@@ -72,7 +57,7 @@ async function fetchSupabaseSecretPage(
   month: string
 ): Promise<SecretPageRecord | null> {
   if (!supabase) return null;
-  const userId = await getOrCreateUserId(lastfmUsername);
+  const userId = await requireSessionUserId();
   const { data, error } = await supabase
     .from('secret_pages')
     .select(
@@ -95,7 +80,7 @@ async function upsertSupabaseSecretPage(
   record: SecretPageRecord
 ) {
   if (!supabase) throw new Error('Supabase is not configured');
-  const userId = await getOrCreateUserId(lastfmUsername);
+  const userId = await requireSessionUserId();
   const { error } = await supabase.from('secret_pages').upsert(
     {
       user_id: userId,
@@ -259,11 +244,12 @@ export const secretPagesStorage = {
       throw new Error('Only audio files are allowed');
     }
     const audioBase64 = await fileToBase64(file);
+    const token = await getAccessTokenForFetch();
+    if (!token) throw new Error('Not authenticated');
     const res = await fetch('/api/secret-pages/upload-audio', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body: JSON.stringify({
-        lastfm_username: lastfmUsername,
         year,
         month,
         audioBase64,
@@ -285,14 +271,17 @@ export const secretPagesStorage = {
     await res.json().catch(() => ({}));
   },
 
-  /** Clears audio locally always. Returns true if the server delete API succeeded. */
   async removeAudioFile(lastfmUsername: string, year: number, month: string): Promise<boolean> {
     let serverOk = false;
     try {
+      const token = await getAccessTokenForFetch();
       const res = await fetch('/api/secret-pages/delete-audio', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ lastfm_username: lastfmUsername, year, month }),
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ year, month }),
       });
       serverOk = res.ok;
     } catch {
@@ -320,10 +309,14 @@ export const secretPagesStorage = {
     }
     if (!record.audio_storage_path) return null;
 
+    const token = await getAccessTokenForFetch();
     const res = await fetch('/api/secret-pages/audio-url', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ lastfm_username: lastfmUsername, year, month }),
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify({ year, month }),
     });
     if (!res.ok) return null;
     const data = (await res.json()) as { url?: string | null };
