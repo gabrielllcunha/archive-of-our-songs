@@ -39,9 +39,7 @@ export function ModalInitialConfig({ authenticatedWithLastfm, setAuthenticatedWi
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string>("");
   const API_KEY = process?.env?.NEXT_PUBLIC_API_KEY;
-  const CALLBACK_URL = process?.env?.NEXT_PUBLIC_CALLBACK_URL;
   const TURNSTILE_SITE_KEY = process?.env?.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
-
   const hasTurnstileConfigured = useMemo(() => Boolean(TURNSTILE_SITE_KEY), [TURNSTILE_SITE_KEY]);
 
   const [validationStep, setValidationStep] = useState<ValidationStep>("idle");
@@ -197,10 +195,13 @@ export function ModalInitialConfig({ authenticatedWithLastfm, setAuthenticatedWi
   }, [authenticatedWithLastfm, hasTurnstileConfigured, runBootstrap, setAuthenticatedWithLastfm]);
 
   const handleAuthenticateWithLastfm = async () => {
-    if (!API_KEY || !CALLBACK_URL) {
+    if (!API_KEY) {
       setError("Missing API configuration");
       return;
     }
+
+    const explicitCb = process.env.NEXT_PUBLIC_CALLBACK_URL?.trim();
+    const callbackUrl = explicitCb && explicitCb.length > 0 ? explicitCb : `${window.location.origin}/`;
 
     try {
       setIsLoading(true);
@@ -218,7 +219,7 @@ export function ModalInitialConfig({ authenticatedWithLastfm, setAuthenticatedWi
       const data = await response.json();
       const token = data.token;
       localStorage.setItem("lastfm_token", token);
-      window.location.href = `https://www.last.fm/api/auth/?api_key=${API_KEY}&cb=${encodeURIComponent(CALLBACK_URL)}`;
+      window.location.href = `https://www.last.fm/api/auth/?api_key=${API_KEY}&cb=${encodeURIComponent(callbackUrl)}`;
     } catch (error) {
       console.error("Error during authentication:", error);
       setError("Failed to authenticate. Please try again.");
