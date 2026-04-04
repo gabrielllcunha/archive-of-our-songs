@@ -26,6 +26,12 @@ export function HomePage() {
   ], []);
   const abortControllerRef = useRef<AbortController | null>(null);
   const isRefreshingRef = useRef(false);
+  const earliestSelectableYear = 2021;
+  const latestSelectableYear = currentYear - 1;
+
+  const [extraModalOpen, setExtraModalOpen] = useState(false);
+  const [extraModalPendingMonth, setExtraModalPendingMonth] = useState<number | null>(null);
+  const [yearSelectRevision, setYearSelectRevision] = useState(0);
 
   const handleTabChange = (value: string) => {
     setActiveTab(value);
@@ -33,7 +39,28 @@ export function HomePage() {
 
   const handleYearChange = (value: string) => {
     setYear(Number(value));
+    setYearSelectRevision((r) => r + 1);
   };
+
+  const handleExtraModalOpenChange = useCallback((nextOpen: boolean) => {
+    setExtraModalOpen(nextOpen);
+    if (!nextOpen) {
+      setExtraModalPendingMonth(null);
+    }
+  }, []);
+
+  const handlePendingMonthConsumed = useCallback(() => {
+    setExtraModalPendingMonth(null);
+  }, []);
+
+  const handleModalYearChange = useCallback((nextYear: number) => {
+    setYear(nextYear);
+  }, []);
+
+  const openExtraModalForAlbumMonth = useCallback((monthIndex: number) => {
+    setExtraModalPendingMonth(monthIndex);
+    setExtraModalOpen(true);
+  }, []);
 
   const handleViewTypeChange = (value: string) => {
     setViewType(value);
@@ -275,7 +302,7 @@ export function HomePage() {
           renderProgressBar(name)
         ) : (
           <div className={styles.monthsGrid}>
-            {months.map((month) => {
+            {months.map((month, monthIndex) => {
               const item = items?.find(item => item.month === month) || null;
               return (
                 <MonthItem
@@ -286,6 +313,11 @@ export function HomePage() {
                   artist={item?.artist || ""}
                   scrobbles={item?.scrobbles || null}
                   rounded={name === "artists"}
+                  onClick={
+                    name === "albums" && activeTab === "albums"
+                      ? () => openExtraModalForAlbumMonth(monthIndex)
+                      : undefined
+                  }
                 />
               );
             })}
@@ -349,7 +381,18 @@ export function HomePage() {
                 {renderTabsContent("songs", songs)}
               </Tabs>
             </div>
-            <ModalExtraContent year={year} albums={albums} />
+            <ModalExtraContent
+              year={year}
+              albums={albums}
+              open={extraModalOpen}
+              onOpenChange={handleExtraModalOpenChange}
+              yearSelectRevision={yearSelectRevision}
+              onYearChange={handleModalYearChange}
+              minYear={earliestSelectableYear}
+              maxYear={latestSelectableYear}
+              pendingMonthIndex={extraModalPendingMonth}
+              onPendingMonthConsumed={handlePendingMonthConsumed}
+            />
           </div>
         )}
         {authenticatedWithLastfm && lastfmUsername && (

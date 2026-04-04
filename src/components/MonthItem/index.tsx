@@ -10,11 +10,27 @@ interface MonthItemProps {
   artist?: string;
   scrobbles?: number;
   rounded?: boolean;
+  onClick?: () => void;
 }
 
-export function MonthItem({ month, imageUrl, name, artist, scrobbles, rounded }: MonthItemProps) {
+export function MonthItem({ month, imageUrl, name, artist, scrobbles, rounded, onClick }: MonthItemProps) {
   return (
-    <div className={styles.monthItem}>
+    <div
+      className={classNames(styles.monthItem, { [styles.interactive]: Boolean(onClick) })}
+      onClick={onClick}
+      onKeyDown={
+        onClick
+          ? (e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                onClick();
+              }
+            }
+          : undefined
+      }
+      role={onClick ? "button" : undefined}
+      tabIndex={onClick ? 0 : undefined}
+    >
       <div className={styles.monthName}>{month}</div>
       <div
         className={classNames(styles.imageBox, { [styles.rounded]: rounded })}

@@ -5,6 +5,16 @@
   margin: 8px 16px;
 }
 
+.interactive {
+  cursor: pointer;
+  border-radius: 8px;
+  outline-offset: 2px;
+
+  &:focus-visible {
+    outline: 2px solid rgba(255, 255, 255, 0.45);
+  }
+}
+
 .monthName {
   font-size: 1.2rem;
   font-weight: bold;

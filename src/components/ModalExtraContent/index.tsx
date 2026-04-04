@@ -13,6 +13,14 @@ import styles from "./styles.module.scss";
 interface ModalExtraContentProps {
   year: number;
   albums: Album[];
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  yearSelectRevision: number;
+  onYearChange: (year: number) => void;
+  minYear: number;
+  maxYear: number;
+  pendingMonthIndex: number | null;
+  onPendingMonthConsumed: () => void;
 }
 
 function truncateFilename(name: string, maxLen: number) {
@@ -20,12 +28,24 @@ function truncateFilename(name: string, maxLen: number) {
   return `${name.slice(0, maxLen - 1)}…`;
 }
 
-export function ModalExtraContent({ year, albums }: ModalExtraContentProps) {
+export function ModalExtraContent({
+  year,
+  albums,
+  open,
+  onOpenChange,
+  yearSelectRevision,
+  onYearChange,
+  minYear,
+  maxYear,
+  pendingMonthIndex,
+  onPendingMonthConsumed,
+}: ModalExtraContentProps) {
   const months = useMemo(() => [
     "January", "February", "March", "April", "May", "June",
     "July", "August", "September", "October", "November", "December",
   ], []);
   const [selectedMonthIndex, setSelectedMonthIndex] = useState(0);
+  const [modalYear, setModalYear] = useState(year);
   const [content, setContent] = useState("");
   const [loadingContent, setLoadingContent] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -62,18 +82,28 @@ export function ModalExtraContent({ year, albums }: ModalExtraContentProps) {
   }, [albums]);
 
   useEffect(() => {
-    setSelectedMonthIndex(0);
+    setModalYear(year);
   }, [year]);
+
+  useEffect(() => {
+    setSelectedMonthIndex(0);
+  }, [yearSelectRevision]);
+
+  useEffect(() => {
+    if (!open || pendingMonthIndex === null) return;
+    setSelectedMonthIndex(pendingMonthIndex);
+    onPendingMonthConsumed();
+  }, [open, pendingMonthIndex, onPendingMonthConsumed]);
 
   useEffect(() => {
     const username = localStorage.getItem("lastfm_username");
     if (!username) return;
-    yearlyDataStorage.getYearlyData(username, year, "albums")
+    yearlyDataStorage.getYearlyData(username, modalYear, "albums")
       .then((data) => {
         if (data && data.length > 0) setAlbumEntries(data as Album[]);
       })
       .catch(() => { });
-  }, [year]);
+  }, [modalYear]);
 
   useLayoutEffect(() => {
     if (!localStorage.getItem("lastfm_username")) return;
@@ -82,7 +112,7 @@ export function ModalExtraContent({ year, albums }: ModalExtraContentProps) {
       audioBlobUrlRef.current = null;
     }
     setAudioSrc(null);
-  }, [year, selectedMonth, audioReloadNonce]);
+  }, [modalYear, selectedMonth, audioReloadNonce]);
 
   useEffect(() => {
     const username = localStorage.getItem("lastfm_username");
@@ -102,7 +132,7 @@ export function ModalExtraContent({ year, albums }: ModalExtraContentProps) {
     setUploadError(null);
 
     (async () => {
-      const rec = await secretPagesStorage.getSecretPage(username, year, selectedMonth);
+      const rec = await secretPagesStorage.getSecretPage(username, modalYear, selectedMonth);
       if (cancelled) return;
       setContent(rec.content);
       setSavedAlbumCoverUrl(rec.album_cover_url);
@@ -119,7 +149,7 @@ export function ModalExtraContent({ year, albums }: ModalExtraContentProps) {
         startSeconds: startSec,
       });
       setStartTimeDraft(formatSecondsAsMmSs(startSec));
-      const url = await secretPagesStorage.getAudioPlaybackUrl(username, year, selectedMonth, rec);
+      const url = await secretPagesStorage.getAudioPlaybackUrl(username, modalYear, selectedMonth, rec);
       if (cancelled) {
         if (url?.startsWith("blob:")) URL.revokeObjectURL(url);
         return;
@@ -132,7 +162,7 @@ export function ModalExtraContent({ year, albums }: ModalExtraContentProps) {
     return () => {
       cancelled = true;
     };
-  }, [year, selectedMonth, audioReloadNonce]);
+  }, [modalYear, selectedMonth, audioReloadNonce]);
 
   useEffect(() => {
     return () => {
@@ -201,7 +231,7 @@ export function ModalExtraContent({ year, albums }: ModalExtraContentProps) {
     const username = localStorage.getItem("lastfm_username");
     if (!username) return;
     const cover = selectedAlbum?.imageUrl ?? null;
-    await secretPagesStorage.storeSecretPage(username, year, selectedMonth, {
+    await secretPagesStorage.storeSecretPage(username, modalYear, selectedMonth, {
       content: value,
       album_cover_url: cover,
     });
@@ -213,13 +243,13 @@ export function ModalExtraContent({ year, albums }: ModalExtraContentProps) {
       const username = localStorage.getItem("lastfm_username");
       if (!username || !audioUi.hasTrack) return;
       const clamped = Math.max(0, seconds);
-      await secretPagesStorage.storeSecretPage(username, year, selectedMonth, {
+      await secretPagesStorage.storeSecretPage(username, modalYear, selectedMonth, {
         audio_start_seconds: clamped,
       });
       setAudioUi((u) => ({ ...u, startSeconds: clamped }));
       setStartTimeDraft(formatSecondsAsMmSs(clamped));
     },
-    [audioUi.hasTrack, selectedMonth, year]
+    [audioUi.hasTrack, selectedMonth, modalYear]
   );
 
   const handleChange = (value: string) => {
@@ -281,7 +311,7 @@ export function ModalExtraContent({ year, albums }: ModalExtraContentProps) {
     setUploadBusy(true);
     setUploadError(null);
     try {
-      await secretPagesStorage.uploadAudioFile(username, year, selectedMonth, file);
+      await secretPagesStorage.uploadAudioFile(username, modalYear, selectedMonth, file);
       setAudioReloadNonce((n) => n + 1);
     } catch (err) {
       setUploadError(err instanceof Error ? err.message : "Upload failed");
@@ -296,7 +326,7 @@ export function ModalExtraContent({ year, albums }: ModalExtraContentProps) {
     if (!username) return;
     setRemoveBusy(true);
     setUploadError(null);
-    const serverOk = await secretPagesStorage.removeAudioFile(username, year, selectedMonth);
+    const serverOk = await secretPagesStorage.removeAudioFile(username, modalYear, selectedMonth);
     setAudioReloadNonce((n) => n + 1);
     if (!serverOk) {
       setUploadError("Removed on this device; cloud copy may still exist. Try again if needed.");
@@ -305,19 +335,38 @@ export function ModalExtraContent({ year, albums }: ModalExtraContentProps) {
   };
 
   const goPrevMonth = () => {
-    setSelectedMonthIndex((prev) => (prev > 0 ? prev - 1 : prev));
+    if (selectedMonthIndex > 0) {
+      setSelectedMonthIndex((prev) => prev - 1);
+    } else if (modalYear > minYear) {
+      const y = modalYear - 1;
+      setModalYear(y);
+      setSelectedMonthIndex(months.length - 1);
+      onYearChange(y);
+    }
   };
 
   const goNextMonth = () => {
-    setSelectedMonthIndex((prev) => (prev < months.length - 1 ? prev + 1 : prev));
+    if (selectedMonthIndex < months.length - 1) {
+      setSelectedMonthIndex((prev) => prev + 1);
+    } else if (modalYear < maxYear) {
+      const y = modalYear + 1;
+      setModalYear(y);
+      setSelectedMonthIndex(0);
+      onYearChange(y);
+    }
   };
+
+  const prevDisabled = selectedMonthIndex === 0 && modalYear <= minYear;
+  const nextDisabled = selectedMonthIndex === months.length - 1 && modalYear >= maxYear;
 
   return (
     <Dialog
+      open={open}
       allowClose={false}
       contentClassName={styles.dialogContainer}
-      onOpenChange={(open) => {
-        if (open) {
+      onOpenChange={(nextOpen) => {
+        onOpenChange(nextOpen);
+        if (nextOpen) {
           setDialogPlaybackNonce((n) => n + 1);
         } else {
           audioRef.current?.pause();
@@ -356,7 +405,7 @@ export function ModalExtraContent({ year, albums }: ModalExtraContentProps) {
 
         {imageLoading && backgroundImageUrl && (
           <div className={styles.imageLoadingOverlay}>
-            <Spinner size="large" />
+            <Spinner size="large" loading={imageLoading} />
           </div>
         )}
 
@@ -368,7 +417,7 @@ export function ModalExtraContent({ year, albums }: ModalExtraContentProps) {
                 onClick={goPrevMonth}
                 className={`${styles.monthArrow} ${styles.monthArrowLeft}`}
                 aria-label="Previous month"
-                disabled={selectedMonthIndex === 0}
+                disabled={prevDisabled}
               >
                 <ChevronLeftIcon />
               </button>
@@ -378,11 +427,11 @@ export function ModalExtraContent({ year, albums }: ModalExtraContentProps) {
                 onClick={goNextMonth}
                 className={`${styles.monthArrow} ${styles.monthArrowRight}`}
                 aria-label="Next month"
-                disabled={selectedMonthIndex === months.length - 1}
+                disabled={nextDisabled}
               >
                 <ChevronRightIcon />
               </button>
-              <span className={styles.monthYear}>{year}</span>
+              <span className={styles.monthYear}>{modalYear}</span>
             </div>
             <div className={styles.mediaRow}>
               {audioUi.hasTrack ? (

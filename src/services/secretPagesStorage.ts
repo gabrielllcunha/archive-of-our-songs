@@ -217,7 +217,7 @@ export const secretPagesStorage = {
       try {
         await upsertSupabaseSecretPage(lastfmUsername, year, month, next);
       } catch {
-        /* no idb on server */
+        
       }
       return;
     }

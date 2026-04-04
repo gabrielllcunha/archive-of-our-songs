@@ -2,28 +2,24 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  animation: spin 900ms linear infinite;
+  line-height: 0;
   color: rgba(255, 255, 255, 0.9);
+  --spinner-animation-duration: 800ms;
+  --spinner-opacity: 0.65;
+  --radius-1: 3px;
 }
 
-.small {
-  font-size: 14px;
+.small :global(.rt-Spinner) {
+  width: 14px;
+  height: 14px;
 }
 
-.medium {
-  font-size: 20px;
+.medium :global(.rt-Spinner) {
+  width: 20px;
+  height: 20px;
 }
 
-.large {
-  font-size: 40px;
+.large :global(.rt-Spinner) {
+  width: 40px;
+  height: 40px;
 }
-
-@keyframes spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
-}
-
