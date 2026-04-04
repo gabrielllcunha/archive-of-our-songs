@@ -5,6 +5,7 @@ import { Album, Singer, Song } from "@/models";
 import { Button, MonthItem, Popover, Progress, SegmentedControl, Select, Tabs, TabsContent, TabsList, TabsTrigger } from '@/components';
 import { fetchDataFromEndpoint } from "@/utils/fetchDataFromEndpoint";
 import { yearlyDataStorage } from '@/services/yearlyDataStorage';
+import { supabase } from "@/utils/supabase";
 import { ModalExtraContent } from "../ModalExtraContent";
 import { ModalInitialConfig } from "../ModalInitialConfig";
 
@@ -242,7 +243,8 @@ export function HomePage() {
     setLastfmUsername(localStorage.getItem("lastfm_username"));
   }, [authenticatedWithLastfm]);
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await supabase?.auth.signOut();
     localStorage.removeItem("lastfm_username");
     localStorage.removeItem("lastfm_token");
     localStorage.removeItem("lastfm_auth_started");
@@ -347,7 +349,7 @@ export function HomePage() {
                 {renderTabsContent("songs", songs)}
               </Tabs>
             </div>
-            <ModalExtraContent />
+            <ModalExtraContent year={year} albums={albums} />
           </div>
         )}
         {authenticatedWithLastfm && lastfmUsername && (
