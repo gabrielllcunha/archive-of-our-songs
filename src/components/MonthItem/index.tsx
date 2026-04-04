@@ -15,25 +15,26 @@ interface MonthItemProps {
 
 export function MonthItem({ month, imageUrl, name, artist, scrobbles, rounded, onClick }: MonthItemProps) {
   return (
-    <div
-      className={classNames(styles.monthItem, { [styles.interactive]: Boolean(onClick) })}
-      onClick={onClick}
-      onKeyDown={
-        onClick
-          ? (e) => {
-              if (e.key === "Enter" || e.key === " ") {
-                e.preventDefault();
-                onClick();
-              }
-            }
-          : undefined
-      }
-      role={onClick ? "button" : undefined}
-      tabIndex={onClick ? 0 : undefined}
-    >
+    <div className={styles.monthItem}>
       <div className={styles.monthName}>{month}</div>
       <div
-        className={classNames(styles.imageBox, { [styles.rounded]: rounded })}
+        className={classNames(styles.imageBox, {
+          [styles.rounded]: rounded,
+          [styles.interactive]: Boolean(onClick),
+        })}
+        onClick={onClick}
+        onKeyDown={
+          onClick
+            ? (e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  onClick();
+                }
+              }
+            : undefined
+        }
+        role={onClick ? "button" : undefined}
+        tabIndex={onClick ? 0 : undefined}
       >
         {imageUrl ? (
           <Image
