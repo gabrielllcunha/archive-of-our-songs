@@ -498,11 +498,18 @@ export function ModalExtraContent({
                 value={content}
                 onChange={(event) => handleChange(event.target.value)}
                 onBlur={handleBlur}
-                placeholder="Write your secret page for this month..."
+                placeholder="What did things in this month sound like?"
               />
             ) : (
-              <div className={styles.diaryText} onClick={() => setEditing(true)}>
-                {loadingContent ? "Loading..." : (content || "Write your secret page for this month...")}
+              <div
+                className={
+                  `${styles.diaryText}${
+                    !loadingContent && !content ? ` ${styles.diaryTextPlaceholder}` : ""
+                  }`
+                }
+                onClick={() => setEditing(true)}
+              >
+                {loadingContent ? "Loading..." : (content || "What did things in this month sound like?")}
               </div>
             )}
           </div>

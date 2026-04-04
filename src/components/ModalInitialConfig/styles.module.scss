@@ -67,10 +67,6 @@
   margin: 0;
 }
 
-.spinningIcon {
-  animation: spin 900ms linear infinite;
-}
-
 @keyframes spin {
   from {
     transform: rotate(0deg);

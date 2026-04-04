@@ -1,3 +1,25 @@
+@mixin subtle-scrollbar-y {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+
+  &::-webkit-scrollbar {
+    width: 5px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 999px;
+  }
+
+  &::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.18);
+  }
+}
+
 .secretIcon {
   position: absolute;
   top: 1rem;
@@ -198,13 +220,17 @@
   white-space: pre-wrap;
   overflow-y: auto;
   color: rgba(255, 255, 255, 0.85);
-  transition: background-color 0.2s ease, opacity 0.2s ease;
+  transition: background-color 0.2s ease;
+  @include subtle-scrollbar-y;
 }
 
 .diaryText:hover {
-  background-color: rgba(255, 255, 255, 0.06);
-  opacity: 0.5;
+  background-color: rgba(255, 255, 255, 0.035);
   cursor: text;
+}
+
+.diaryTextPlaceholder {
+  color: rgba(255, 255, 255, 0.38);
 }
 
 .diaryInput {
@@ -220,6 +246,12 @@
   background: transparent;
   color: rgba(255, 255, 255, 0.9);
   outline: none;
+  @include subtle-scrollbar-y;
+
+  &::placeholder {
+    color: rgba(255, 255, 255, 0.38);
+    opacity: 1;
+  }
 }
 
 .albumImageLoading {

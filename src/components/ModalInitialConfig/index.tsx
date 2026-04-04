@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, useCallback, useRef } from "react";
-import { Dialog } from "@/components";
+import { Dialog, Spinner } from "@/components";
 import styles from "./styles.module.scss";
-import { CheckCircledIcon, LockClosedIcon, ReloadIcon } from "@radix-ui/react-icons";
+import { CheckCircledIcon, LockClosedIcon } from "@radix-ui/react-icons";
 import { supabase } from "@/utils/supabase";
 import { applyBootstrapSession } from "@/utils/supabaseSession";
 
@@ -309,7 +309,7 @@ export function ModalInitialConfig({ authenticatedWithLastfm, setAuthenticatedWi
             <div className={styles.dialogDesc} style={{ display: "grid", gap: 8 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 {validationStep === "captcha" ? (
-                  <ReloadIcon className={styles.spinningIcon} />
+                  <Spinner size="small" />
                 ) : (
                   <CheckCircledIcon />
                 )}
@@ -317,7 +317,7 @@ export function ModalInitialConfig({ authenticatedWithLastfm, setAuthenticatedWi
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 {validationStep === "lastfm" || validationStep === "verifying" ? (
-                  <ReloadIcon className={styles.spinningIcon} />
+                  <Spinner size="small" />
                 ) : (
                   <CheckCircledIcon />
                 )}
