@@ -45,3 +45,19 @@ a {
   text-decoration: none;
 }
 
+.radix-themes {
+  font: 400 1rem "Nunito", sans-serif;
+  color: var(--font-color);
+  background-color: transparent;
+}
+
+.radix-themes a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.radix-themes ::selection {
+  background-color: #F0F0F0;
+  color: #0A0A0A;
+}
+
