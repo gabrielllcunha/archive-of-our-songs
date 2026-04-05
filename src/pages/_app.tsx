@@ -9,9 +9,21 @@ type MyAppProps = AppProps & {
 };
 
 function MyApp({ Component, pageProps }: MyAppProps) {
+  const year = new Date().getFullYear();
+  const version = process.env.NEXT_PUBLIC_APP_VERSION ?? '0.0.1';
+  const versionLabel = version.startsWith('v') ? version : `v${version}`;
   return (
     <Theme appearance="dark" hasBackground={false}>
       <Component {...pageProps} />
+      <footer className="appCopyright">
+        <span>© All rights reserved {year}</span>
+        <span className="appCopyrightSep" aria-hidden>
+          ·
+        </span>
+        <span className="appCopyrightVersion" title={`Version ${versionLabel}`}>
+          {versionLabel}
+        </span>
+      </footer>
     </Theme>
   );
 }

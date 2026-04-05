@@ -61,3 +61,28 @@ a {
   color: #0A0A0A;
 }
 
+.appCopyright {
+  position: fixed;
+  right: 12px;
+  bottom: 12px;
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 9px;
+  margin: 0;
+  font-size: 0.82rem;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.appCopyrightSep {
+  color: rgba(255, 255, 255, 0.45);
+  user-select: none;
+}
+
+.appCopyrightVersion {
+  font-variant-numeric: tabular-nums;
+  color: rgba(255, 255, 255, 0.72);
+}
+
