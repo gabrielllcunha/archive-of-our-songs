@@ -11,7 +11,8 @@ type MyAppProps = AppProps & {
 function MyApp({ Component, pageProps }: MyAppProps) {
   const year = new Date().getFullYear();
   const version = process.env.NEXT_PUBLIC_APP_VERSION ?? '0.0.1';
-  const versionLabel = version.startsWith('v') ? version : `v${version}`;
+  const versionLabel = /^v?\d+\.\d+/.test(version) && !version.startsWith('v') ? `v${version}` : version;
+
   return (
     <Theme appearance="dark" hasBackground={false}>
       <Component {...pageProps} />

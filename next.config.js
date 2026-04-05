@@ -1,15 +1,20 @@
 const pkg = require('./package.json')
 
+function looksLikeVersionRef(ref) {
+  return Boolean(ref && /^v?\d+\.\d+/.test(ref))
+}
+
 function resolveAppVersion() {
   if (process.env.NEXT_PUBLIC_APP_VERSION) {
     return process.env.NEXT_PUBLIC_APP_VERSION
   }
-  if (process.env.VERCEL_GIT_COMMIT_REF) {
-    return process.env.VERCEL_GIT_COMMIT_REF
+  const vercelRef = process.env.VERCEL_GIT_COMMIT_REF
+  if (looksLikeVersionRef(vercelRef)) {
+    return vercelRef
   }
-  const ref = process.env.GITHUB_REF_NAME
-  if (ref && /^(v?\d+\.\d+)/.test(ref)) {
-    return ref
+  const ghRef = process.env.GITHUB_REF_NAME
+  if (looksLikeVersionRef(ghRef)) {
+    return ghRef
   }
   return pkg.version
 }
