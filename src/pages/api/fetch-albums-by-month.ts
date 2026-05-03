@@ -2,6 +2,7 @@ import { NextApiRequest, NextApiResponse } from 'next';
 import { chromium } from 'playwright';
 import { login } from '@/utils/login';
 import { supabaseService } from '@/services/supabaseService';
+import { requireSupabaseAnonClientFromBearer } from '@/utils/server/requireSupabaseAnonFromBearer';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') {
@@ -16,11 +17,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(400).json({ error: 'Required authentication details are missing' });
   }
 
+  const auth = requireSupabaseAnonClientFromBearer(req, res);
+  if (!auth) return;
+
   try {
     const storedData = await supabaseService.getYearlyData(
       target_account,
       Number(year),
-      'albums'
+      'albums',
+      auth.client,
+      auth.accessToken
     );
 
     if (!forceRefresh) {
@@ -111,7 +117,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         target_account,
         Number(year),
         'albums',
-        albums
+        albums,
+        auth.client,
+        auth.accessToken
       );
 
       res.status(200).json(albums);
@@ -123,6 +131,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
   } catch (error) {
     console.error('Error in fetch-albums-by-month:', error);
+    if (error instanceof Error && error.message === 'Not authenticated') {
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
+    }
     res.status(500).json({ error: 'Internal server error' });
   }
 }

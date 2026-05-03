@@ -1,9 +1,17 @@
-export const fetchDataFromEndpoint = async (endpoint: string, payload: Record<string, any>, signal?: AbortSignal) => {
+import { getAccessTokenForFetch } from '@/utils/supabaseSession';
+
+export const fetchDataFromEndpoint = async (
+  endpoint: string,
+  payload: Record<string, unknown>,
+  signal?: AbortSignal
+) => {
   try {
+    const token = await getAccessTokenForFetch();
     const response = await fetch(`/api/${endpoint}`, {
-      method: "POST",
+      method: 'POST',
       headers: {
-        "Content-Type": "application/json",
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
       body: JSON.stringify(payload),
       signal,

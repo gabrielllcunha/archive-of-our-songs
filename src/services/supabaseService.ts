@@ -1,5 +1,5 @@
 import { supabase } from '@/utils/supabase';
-import type { SupabaseClient, User } from '@supabase/supabase-js';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 export type YearlyDataType = 'albums' | 'artists' | 'songs';
 
@@ -10,13 +10,13 @@ function requireSupabase(): SupabaseClient {
   return supabase;
 }
 
-async function requireSessionUser(): Promise<User> {
-  const sb = requireSupabase();
-  const { data: { session }, error } = await sb.auth.getSession();
-  if (error || !session?.user) {
+async function requireUserId(sb: SupabaseClient, bearerAccessToken?: string | null): Promise<string> {
+  const jwt = bearerAccessToken?.trim();
+  const { data: { user }, error } = jwt ? await sb.auth.getUser(jwt) : await sb.auth.getUser();
+  if (error || !user) {
     throw new Error('Not authenticated');
   }
-  return session.user;
+  return user.id;
 }
 
 export interface MonthlyEntry {
@@ -28,10 +28,15 @@ export interface MonthlyEntry {
 }
 
 export const supabaseService = {
-  async getYearlyData(_lastfmUsername: string, year: number, type: YearlyDataType) {
-    const sb = requireSupabase();
-    const user = await requireSessionUser();
-    const userId = user.id;
+  async getYearlyData(
+    _lastfmUsername: string,
+    year: number,
+    type: YearlyDataType,
+    client?: SupabaseClient,
+    bearerAccessToken?: string | null
+  ) {
+    const sb = client ?? requireSupabase();
+    const userId = await requireUserId(sb, client ? bearerAccessToken : undefined);
 
     const { data: yearlyData, error: yearlyError } = await sb
       .from('yearly_data')
@@ -66,10 +71,16 @@ export const supabaseService = {
     }));
   },
 
-  async storeYearlyData(_lastfmUsername: string, year: number, type: YearlyDataType, entries: MonthlyEntry[]) {
-    const sb = requireSupabase();
-    const user = await requireSessionUser();
-    const userId = user.id;
+  async storeYearlyData(
+    _lastfmUsername: string,
+    year: number,
+    type: YearlyDataType,
+    entries: MonthlyEntry[],
+    client?: SupabaseClient,
+    bearerAccessToken?: string | null
+  ) {
+    const sb = client ?? requireSupabase();
+    const userId = await requireUserId(sb, client ? bearerAccessToken : undefined);
 
     const { data: existingYearlyData, error: yearlyError } = await sb
       .from('yearly_data')
