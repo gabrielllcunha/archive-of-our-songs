@@ -1,6 +1,6 @@
 declare module '@sparticuz/chromium' {
   interface SparticuzChromium {
-    setGraphicsMode(value: boolean): void;
+    setGraphicsMode: boolean;
     args: string[];
     executablePath(): Promise<string>;
     headless: boolean;
