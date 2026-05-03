@@ -2,7 +2,7 @@ import styles from "./styles.module.scss";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CalendarIcon, DotsVerticalIcon, ListBulletIcon, UpdateIcon } from "@radix-ui/react-icons";
 import { Album, Singer, Song } from "@/models";
-import { Button, MonthItem, Popover, Progress, SegmentedControl, Select, Tabs, TabsContent, TabsList, TabsTrigger } from '@/components';
+import { Button, MonthItem, Popover, Progress, SegmentedControl, Select, Spinner, Tabs, TabsContent, TabsList, TabsTrigger } from '@/components';
 import { fetchDataFromEndpoint } from "@/utils/fetchDataFromEndpoint";
 import { yearlyDataStorage } from '@/services/yearlyDataStorage';
 import { supabase } from "@/utils/supabase";
@@ -29,6 +29,7 @@ export function HomePage() {
   const earliestSelectableYear = 2021;
   const latestSelectableYear = currentYear - 1;
 
+  const [sessionStarted, setSessionStarted] = useState(false);
   const [extraModalOpen, setExtraModalOpen] = useState(false);
   const [extraModalPendingMonth, setExtraModalPendingMonth] = useState<number | null>(null);
   const [yearSelectRevision, setYearSelectRevision] = useState(0);
@@ -41,6 +42,10 @@ export function HomePage() {
     setYear(Number(value));
     setYearSelectRevision((r) => r + 1);
   };
+
+  const handleSessionStarted = useCallback(() => {
+    setSessionStarted(true);
+  }, []);
 
   const handleExtraModalOpenChange = useCallback((nextOpen: boolean) => {
     setExtraModalOpen(nextOpen);
@@ -271,6 +276,7 @@ export function HomePage() {
   }, [authenticatedWithLastfm]);
 
   const handleLogout = async () => {
+    setSessionStarted(false);
     await supabase?.auth.signOut();
     localStorage.removeItem("lastfm_username");
     localStorage.removeItem("lastfm_token");
@@ -395,6 +401,11 @@ export function HomePage() {
             />
           </div>
         )}
+        {!sessionStarted && (
+          <div className={styles.authBootstrapOverlay} aria-busy="true" aria-label="Checking session">
+            <Spinner size="large" />
+          </div>
+        )}
         {authenticatedWithLastfm && lastfmUsername && (
           <div className={styles.loggedAs}>
             <span>logged as {lastfmUsername}</span>
@@ -413,7 +424,11 @@ export function HomePage() {
             </Popover>
           </div>
         )}
-        <ModalInitialConfig authenticatedWithLastfm={authenticatedWithLastfm} setAuthenticatedWithLastfm={setAuthenticatedWithLastfm} />
+        <ModalInitialConfig
+          authenticatedWithLastfm={authenticatedWithLastfm}
+          setAuthenticatedWithLastfm={setAuthenticatedWithLastfm}
+          onSessionStarted={handleSessionStarted}
+        />
       </div>
     </>
   );

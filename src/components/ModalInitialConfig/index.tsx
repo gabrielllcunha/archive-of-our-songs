@@ -8,6 +8,7 @@ import { applyBootstrapSession } from "@/utils/supabaseSession";
 interface ModalInitialConfigProps {
   authenticatedWithLastfm: boolean;
   setAuthenticatedWithLastfm: (value: boolean) => void;
+  onSessionStarted?: () => void;
 }
 
 type ValidationStep = "idle" | "captcha" | "verifying" | "lastfm";
@@ -35,8 +36,13 @@ function loadTurnstileScript(): Promise<void> {
   });
 }
 
-export function ModalInitialConfig({ authenticatedWithLastfm, setAuthenticatedWithLastfm }: ModalInitialConfigProps) {
+export function ModalInitialConfig({
+  authenticatedWithLastfm,
+  setAuthenticatedWithLastfm,
+  onSessionStarted,
+}: ModalInitialConfigProps) {
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [sessionResolved, setSessionResolved] = useState(false);
   const [error, setError] = useState<string>("");
   const API_KEY = process?.env?.NEXT_PUBLIC_API_KEY;
   const TURNSTILE_SITE_KEY = process?.env?.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
@@ -143,56 +149,81 @@ export function ModalInitialConfig({ authenticatedWithLastfm, setAuthenticatedWi
     [hasTurnstileConfigured, setAuthenticatedWithLastfm]
   );
 
+  const finalizeSessionStarting = useCallback(() => {
+    setSessionResolved(true);
+    onSessionStarted?.();
+  }, [onSessionStarted]);
+
+  useEffect(() => {
+    if (!authenticatedWithLastfm) {
+      setSessionResolved(false);
+    }
+  }, [authenticatedWithLastfm]);
+
+  useEffect(() => {
+    if (authenticatedWithLastfm) {
+      finalizeSessionStarting();
+    }
+  }, [authenticatedWithLastfm, finalizeSessionStarting]);
+
   useEffect(() => {
     if (authenticatedWithLastfm) return;
 
     let cancelled = false;
 
     (async () => {
-      if (supabase) {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (cancelled) return;
-        if (session?.user) {
-          const name = session.user.user_metadata?.lastfm_username as string | undefined;
-          if (name) {
-            localStorage.setItem("lastfm_username", name);
+      try {
+        if (supabase) {
+          const { data: { session } } = await supabase.auth.getSession();
+          if (cancelled) return;
+          if (session?.user) {
+            const name = session.user.user_metadata?.lastfm_username as string | undefined;
+            if (name) {
+              localStorage.setItem("lastfm_username", name);
+            }
+            setAuthenticatedWithLastfm(true);
+            return;
           }
-          setAuthenticatedWithLastfm(true);
+        }
+
+        if (cancelled) return;
+
+        localStorage.removeItem("lastfm_username");
+
+        const urlParams = new URLSearchParams(window.location.search);
+        const token = urlParams.get("token") || localStorage.getItem("lastfm_token");
+        const authStarted = localStorage.getItem("lastfm_auth_started");
+        if (!token) return;
+        if (!authStarted) {
+          try {
+            const url = new URL(window.location.href);
+            url.searchParams.delete("token");
+            window.history.replaceState({}, "", url.toString());
+          } catch {
+
+          }
+          setValidationStep("idle");
           return;
         }
-      }
 
-      localStorage.removeItem("lastfm_username");
-
-      const urlParams = new URLSearchParams(window.location.search);
-      const token = urlParams.get("token") || localStorage.getItem("lastfm_token");
-      const authStarted = localStorage.getItem("lastfm_auth_started");
-      if (!token) return;
-      if (!authStarted) {
-        try {
-          const url = new URL(window.location.href);
-          url.searchParams.delete("token");
-          window.history.replaceState({}, "", url.toString());
-        } catch {
-
+        pendingLfTokenRef.current = token;
+        setPendingLastfmToken(token);
+        if (hasTurnstileConfigured) {
+          setValidationStep("captcha");
+        } else {
+          await runBootstrap(token);
         }
-        setValidationStep("idle");
-        return;
-      }
-
-      pendingLfTokenRef.current = token;
-      setPendingLastfmToken(token);
-      if (hasTurnstileConfigured) {
-        setValidationStep("captcha");
-      } else {
-        await runBootstrap(token);
+      } finally {
+        if (!cancelled) {
+          finalizeSessionStarting();
+        }
       }
     })();
 
     return () => {
       cancelled = true;
     };
-  }, [authenticatedWithLastfm, hasTurnstileConfigured, runBootstrap, setAuthenticatedWithLastfm]);
+  }, [authenticatedWithLastfm, finalizeSessionStarting, hasTurnstileConfigured, runBootstrap, setAuthenticatedWithLastfm]);
 
   const handleAuthenticateWithLastfm = async () => {
     if (!API_KEY) {
@@ -277,7 +308,7 @@ export function ModalInitialConfig({ authenticatedWithLastfm, setAuthenticatedWi
 
   return (
     <Dialog
-      open={!authenticatedWithLastfm}
+      open={sessionResolved && !authenticatedWithLastfm}
       allowClose={false}
       trigger={null}
       initialConfig
