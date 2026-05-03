@@ -1,0 +1,16 @@
+{
+  "functions": {
+    "src/pages/api/fetch-albums-by-month.ts": {
+      "memory": 1024,
+      "maxDuration": 300
+    },
+    "src/pages/api/fetch-artists-by-month.ts": {
+      "memory": 1024,
+      "maxDuration": 300
+    },
+    "src/pages/api/fetch-songs-by-month.ts": {
+      "memory": 1024,
+      "maxDuration": 300
+    }
+  }
+}

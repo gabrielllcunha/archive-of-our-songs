@@ -1,6 +1,6 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import { chromium } from 'playwright';
 import { login } from '@/utils/login';
+import { launchChromiumForScraping } from '@/utils/server/launchChromiumForScraping';
 import { supabaseService } from '@/services/supabaseService';
 import { requireSupabaseAnonClientFromBearer } from '@/utils/server/requireSupabaseAnonFromBearer';
 
@@ -53,7 +53,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const monthsToFetch = months || allMonths;
     const albums = [];
 
-    const browser = await chromium.launch({ headless: true });
+    const browser = await launchChromiumForScraping();
     const page = await browser.newPage();
 
     try {

@@ -1,4 +1,4 @@
-import { Page } from 'playwright';
+import type { Page } from 'playwright-core';
 
 export async function login(page: Page, username: string, password: string) {
   await page.goto('https://www.last.fm/login');
