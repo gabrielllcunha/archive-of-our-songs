@@ -3,6 +3,7 @@ import { login } from '@/utils/login';
 import { launchChromiumForScraping } from '@/utils/server/launchChromiumForScraping';
 import { supabaseService } from '@/services/supabaseService';
 import { requireSupabaseAnonClientFromBearer } from '@/utils/server/requireSupabaseAnonFromBearer';
+import { mergeMonthlyPayloadWithStored } from '@/utils/server/mergeMonthlyYearlyData';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') {
@@ -101,6 +102,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             artists.push({
               month,
               name: artist_name,
+              artist: '',
               imageUrl: image_url || "",
               scrobbles: scrobblesQty,
             });
@@ -109,23 +111,25 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           console.error(`Failed to fetch data for ${month}:`, e);
           artists.push({
             month,
-            name: "",
-            imageUrl: "",
+            name: '',
+            artist: '',
+            imageUrl: '',
             scrobbles: 0,
           });
         }
       }
 
+      const mergedArtists = mergeMonthlyPayloadWithStored(allMonths, storedData, artists);
       await supabaseService.storeYearlyData(
         target_account,
         Number(year),
         'artists',
-        artists as any,
+        mergedArtists,
         auth.client,
         auth.accessToken
       );
 
-      res.status(200).json(artists);
+      res.status(200).json(mergedArtists);
     } catch (e) {
       console.error('Failed during login or scraping:', e);
       res.status(500).json({ error: 'Failed to fetch artists' });

@@ -4,10 +4,12 @@ import { CalendarIcon, DotsVerticalIcon, ListBulletIcon, UpdateIcon } from "@rad
 import { Album, Singer, Song } from "@/models";
 import { Button, MonthItem, Popover, Progress, SegmentedControl, Select, Spinner, Tabs, TabsContent, TabsList, TabsTrigger } from '@/components';
 import { fetchDataFromEndpoint } from "@/utils/fetchDataFromEndpoint";
-import { yearlyDataStorage } from '@/services/yearlyDataStorage';
+import { yearlyDataStorage, type MonthlyEntry } from '@/services/yearlyDataStorage';
 import { supabase } from "@/utils/supabase";
 import { ModalExtraContent } from "../ModalExtraContent";
 import { ModalInitialConfig } from "../ModalInitialConfig";
+
+type DataLoadState = 'idle' | 'checking' | 'downloading';
 
 export function HomePage() {
   const currentYear = new Date().getFullYear();
@@ -17,7 +19,8 @@ export function HomePage() {
   const [albums, setAlbums] = useState<Album[]>([]);
   const [artists, setArtists] = useState<Singer[]>([]);
   const [songs, setSongs] = useState<Song[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [dataLoadState, setDataLoadState] = useState<DataLoadState>('idle');
+  const [fetchProgressPercent, setFetchProgressPercent] = useState(0);
   const [authenticatedWithLastfm, setAuthenticatedWithLastfm] = useState<boolean>(false);
   const [lastfmUsername, setLastfmUsername] = useState<string | null>(null);
   const months = useMemo(() => [
@@ -35,10 +38,12 @@ export function HomePage() {
   const [yearSelectRevision, setYearSelectRevision] = useState(0);
 
   const handleTabChange = (value: string) => {
+    setDataLoadState('checking');
     setActiveTab(value);
   };
 
   const handleYearChange = (value: string) => {
+    setDataLoadState('checking');
     setYear(Number(value));
     setYearSelectRevision((r) => r + 1);
   };
@@ -59,6 +64,7 @@ export function HomePage() {
   }, []);
 
   const handleModalYearChange = useCallback((nextYear: number) => {
+    setDataLoadState('checking');
     setYear(nextYear);
   }, []);
 
@@ -112,7 +118,6 @@ export function HomePage() {
 
   const fetchData = useCallback(async (endpoint: string, setter: React.Dispatch<React.SetStateAction<any[]>>, signal: AbortSignal, forceRefresh = false) => {
     try {
-      setLoading(true);
       const username = localStorage.getItem('lastfm_username');
       if (!username) {
         return;
@@ -130,24 +135,14 @@ export function HomePage() {
           return;
         }
       }
+
+      setDataLoadState('checking');
       const storedData = await yearlyDataStorage.getYearlyData(
         username,
         year,
         endpoint === "fetch-albums-by-month" ? "albums" :
           endpoint === "fetch-artists-by-month" ? "artists" : "songs"
       );
-      const currentDate = new Date();
-      const currentMonth = currentDate.getMonth() + 1;
-      const futureMonths = [];
-      if (year === currentYear) {
-        for (let month = currentMonth; month <= 12; month++) {
-          futureMonths.push(months[month - 1]);
-        }
-      } else if (year > currentYear) {
-        for (let month = 1; month <= 12; month++) {
-          futureMonths.push(months[month - 1]);
-        }
-      }
       const incorrectCacheData = storedData?.filter(entry =>
         !entry.name ||
         (endpoint !== "fetch-artists-by-month" && !entry.artist) ||
@@ -172,54 +167,70 @@ export function HomePage() {
         setter(storedData);
         return;
       }
-      const payload = {
-        target_account: username,
-        year,
-        ...(monthsPayload && { months: monthsPayload }),
-        ...(forceRefresh && { forceRefresh: true }),
-      };
-      const data = await fetchDataFromEndpoint(endpoint, payload, signal);
-      if (storedData) {
-        let monthsToDisplay = months;
-        if (year === currentYear) {
-          const currentMonthNameIndex = new Date().getMonth();
-          monthsToDisplay = months.slice(0, currentMonthNameIndex + 1);
-        }
-        const mergedData = monthsToDisplay.map(monthName => {
+
+      const effectiveMonths =
+        monthsPayload && monthsPayload.length > 0 ? monthsPayload : months;
+      const monthOrder = new Map(months.map((m, i) => [m, i]));
+      const orderedPayload = [...effectiveMonths].sort(
+        (a, b) => (monthOrder.get(a) ?? 0) - (monthOrder.get(b) ?? 0)
+      );
+
+      let monthsToDisplay = months;
+      if (year === currentYear) {
+        const currentMonthNameIndex = new Date().getMonth();
+        monthsToDisplay = months.slice(0, currentMonthNameIndex + 1);
+      }
+
+      const mapServerYearToDisplay = (yearRows: Album[] | Singer[] | Song[]) =>
+        monthsToDisplay.map((monthName) => {
           return (
-            data.find((item: Album | Singer | Song) => item.month === monthName) ||
-            storedData.find((item: Album | Singer | Song) => item.month === monthName) ||
+            yearRows.find((item: Album | Singer | Song) => item.month === monthName) ||
             { month: monthName, name: '', artist: '', imageUrl: '', scrobbles: 0 }
           );
         });
-        setter(mergedData);
+
+      const totalFetches = orderedPayload.length;
+      if (totalFetches === 0) {
+        return;
+      }
+
+      setDataLoadState('downloading');
+      setFetchProgressPercent(0);
+
+      for (let i = 0; i < orderedPayload.length; i++) {
+        if (signal.aborted) break;
+        const monthName = orderedPayload[i];
+        const payload: Record<string, unknown> = {
+          target_account: username,
+          year,
+          months: [monthName],
+          ...(forceRefresh && { forceRefresh: true }),
+        };
+        const yearRows = (await fetchDataFromEndpoint(
+          endpoint,
+          payload,
+          signal
+        )) as Album[] | Singer[] | Song[];
+        const displayData = mapServerYearToDisplay(yearRows);
+        setter(displayData);
+        const forStorage: MonthlyEntry[] = displayData.map((item) => ({
+          month: item.month,
+          name: item.name,
+          artist: 'artist' in item && typeof item.artist === 'string' ? item.artist : '',
+          imageUrl: item.imageUrl,
+          scrobbles: item.scrobbles,
+        }));
         await yearlyDataStorage.storeYearlyData(
           username,
           year,
           endpoint === "fetch-albums-by-month" ? "albums" :
             endpoint === "fetch-artists-by-month" ? "artists" : "songs",
-          mergedData
+          forStorage
         );
-      } else {
-        let monthsToDisplay = months;
-        if (year === currentYear) {
-          const currentMonthNameIndex = new Date().getMonth();
-          monthsToDisplay = months.slice(0, currentMonthNameIndex + 1);
-        }
-        const fullData = monthsToDisplay.map(monthName => {
-          return (
-            data.find((item: Album | Singer | Song) => item.month === monthName) ||
-            { month: monthName, name: '', artist: '', imageUrl: '', scrobbles: 0 }
-          );
-        });
-        setter(fullData);
-        await yearlyDataStorage.storeYearlyData(
-          username,
-          year,
-          endpoint === "fetch-albums-by-month" ? "albums" :
-            endpoint === "fetch-artists-by-month" ? "artists" : "songs",
-          fullData
-        );
+        const done = i + 1;
+        const pct =
+          totalFetches === 0 ? 100 : Math.min(100, (done / totalFetches) * 100);
+        setFetchProgressPercent(pct);
       }
     } catch (error) {
       console.error(`Error fetching from ${endpoint}:`, error);
@@ -237,32 +248,33 @@ export function HomePage() {
           break;
       }
     } finally {
-      setLoading(false);
+      setFetchProgressPercent(0);
+      setDataLoadState('idle');
     }
   }, [year, months, currentYear]);
 
   useEffect(() => {
     if (!authenticatedWithLastfm) return;
+    setDataLoadState('checking');
     abortControllerRef.current?.abort();
     abortControllerRef.current = new AbortController();
     const { signal } = abortControllerRef.current;
-    const debounceTime = setTimeout(() => {
+    void (async () => {
       switch (activeTab) {
         case "albums":
-          fetchData("fetch-albums-by-month", setAlbums, signal);
+          await fetchData("fetch-albums-by-month", setAlbums, signal);
           break;
         case "artists":
-          fetchData("fetch-artists-by-month", setArtists, signal);
+          await fetchData("fetch-artists-by-month", setArtists, signal);
           break;
         case "songs":
-          fetchData("fetch-songs-by-month", setSongs, signal);
+          await fetchData("fetch-songs-by-month", setSongs, signal);
           break;
         default:
           break;
       }
-    }, 500);
+    })();
     return () => {
-      clearTimeout(debounceTime);
       abortControllerRef.current?.abort();
     };
   }, [activeTab, year, fetchData, authenticatedWithLastfm]);
@@ -291,21 +303,34 @@ export function HomePage() {
     return (
       <div className={styles.loadingWrapper}>
         <div className={styles.loading}>
-          <Progress value={null} />
+          <Progress value={fetchProgressPercent} />
         </div>
         <div className={styles.loadingText}>
           <span>Loading {name}...</span>
-          <span className={styles.loadingSubtitle}>(This process can take around 5 minutes)</span>
+          <span className={styles.loadingSubtitle}>
+            {Math.round(fetchProgressPercent)}%
+          </span>
         </div>
       </div>
     );
   };
 
+  const renderSpinnerLoading = () => {
+    return (
+      <div className={styles.loadingWrapper}>
+        <Spinner size="large" />
+      </div>
+    );
+  };
+
   const renderTabsContent = (name: string, items: any[]) => {
+    const showLoading = activeTab === name && dataLoadState !== 'idle';
     return (
       <TabsContent value={name}>
-        {loading ? (
+        {showLoading && dataLoadState === 'downloading' ? (
           renderProgressBar(name)
+        ) : showLoading && dataLoadState === 'checking' ? (
+          renderSpinnerLoading()
         ) : (
           <div className={styles.monthsGrid}>
             {months.map((month, monthIndex) => {
@@ -358,12 +383,12 @@ export function HomePage() {
               />
             </div>
             <div className={styles.contentWrapper}>
-              <Tabs defaultValue={activeTab} onValueChange={handleTabChange}>
+              <Tabs value={activeTab} onValueChange={handleTabChange}>
                 <TabsList sideIcons>
                   <TabsTrigger value="albums">Albums</TabsTrigger>
                   <TabsTrigger value="artists">Artists</TabsTrigger>
                   <TabsTrigger value="songs">Songs</TabsTrigger>
-                  <Button variant="secondary" size="small" className={styles.refreshButton} onClick={handleRefreshData} disabled={loading}>
+                  <Button variant="secondary" size="small" className={styles.refreshButton} onClick={handleRefreshData} disabled={dataLoadState !== 'idle'}>
                     <UpdateIcon style={{ marginRight: '8px', width: '14px', height: '14px' }} />
                     Refresh Data
                   </Button>

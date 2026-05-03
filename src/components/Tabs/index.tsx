@@ -3,15 +3,17 @@ import styles from "./styles.module.scss";
 import * as RadixTabs from "@radix-ui/react-tabs";
 
 interface TabsProps {
-    defaultValue: string;
+    value?: string;
+    defaultValue?: string;
     onValueChange?: (value: string) => void;
     children: React.ReactNode;
 }
 
-export function Tabs({ defaultValue, onValueChange, children }: TabsProps) {
+export function Tabs({ value, defaultValue, onValueChange, children }: TabsProps) {
     return (
         <RadixTabs.Root
-            defaultValue={defaultValue}
+            value={value}
+            defaultValue={value === undefined ? defaultValue : undefined}
             onValueChange={onValueChange}
             className={styles.tabsRoot}
         >

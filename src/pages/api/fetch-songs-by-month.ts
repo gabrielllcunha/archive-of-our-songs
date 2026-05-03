@@ -3,6 +3,7 @@ import { login } from '@/utils/login';
 import { launchChromiumForScraping } from '@/utils/server/launchChromiumForScraping';
 import { supabaseService } from '@/services/supabaseService';
 import { requireSupabaseAnonClientFromBearer } from '@/utils/server/requireSupabaseAnonFromBearer';
+import { mergeMonthlyPayloadWithStored } from '@/utils/server/mergeMonthlyYearlyData';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') {
@@ -128,16 +129,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         }
       }
 
+      const mergedSongs = mergeMonthlyPayloadWithStored(allMonths, storedData, songs);
       await supabaseService.storeYearlyData(
         target_account,
         Number(year),
         'songs',
-        songs,
+        mergedSongs,
         auth.client,
         auth.accessToken
       );
 
-      res.status(200).json(songs);
+      res.status(200).json(mergedSongs);
     } catch (e) {
       console.error('Failed during login or scraping:', e);
       res.status(500).json({ error: 'Failed to fetch songs' });

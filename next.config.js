@@ -22,6 +22,11 @@ function resolveAppVersion() {
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   serverExternalPackages: ['@sparticuz/chromium', 'playwright-core'],
+  outputFileTracingIncludes: {
+    '/api/fetch-albums-by-month': ['./node_modules/@sparticuz/chromium/**/*'],
+    '/api/fetch-artists-by-month': ['./node_modules/@sparticuz/chromium/**/*'],
+    '/api/fetch-songs-by-month': ['./node_modules/@sparticuz/chromium/**/*'],
+  },
   env: {
     NEXT_PUBLIC_APP_VERSION: resolveAppVersion(),
   },

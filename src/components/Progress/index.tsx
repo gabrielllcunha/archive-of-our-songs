@@ -10,6 +10,7 @@ export function Progress({ value }: ProgressProps) {
         <RadixProgress.Root
             className={styles.progressRoot}
             value={value ?? undefined}
+            max={100}
         >
             <RadixProgress.Indicator
                 className={styles.progressIndicator}
