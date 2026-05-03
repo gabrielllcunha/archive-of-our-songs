@@ -22,12 +22,6 @@ function resolveAppVersion() {
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   experimental: {
-    outputFileTracingIncludes: {
-      '/*': [
-        './node_modules/@sparticuz/chromium/**/*',
-        './vendor/sparticuz-chromium/**/*',
-      ],
-    },
     serverComponentsExternalPackages: ['@sparticuz/chromium', 'playwright-core'],
   },
   env: {
