@@ -73,9 +73,17 @@ export function ModalExtraContent({
 
   const selectedMonth = months[selectedMonthIndex];
   const selectedAlbum = albumEntries.find((item) => item.month === selectedMonth);
-  const backgroundImageUrl = savedAlbumCoverUrl || selectedAlbum?.imageUrl;
+  const backgroundImageUrl = savedAlbumCoverUrl ?? selectedAlbum?.imageUrl ?? null;
 
   const displayAudioName = audioUi.filename?.trim() || "Soundtrack";
+
+  const stopAudioPlayback = useCallback(() => {
+    const el = audioRef.current;
+    if (!el) return;
+    el.pause();
+    el.removeAttribute("src");
+    el.load();
+  }, []);
 
   useEffect(() => {
     setAlbumEntries(albums);
@@ -94,6 +102,21 @@ export function ModalExtraContent({
     setSelectedMonthIndex(pendingMonthIndex);
     onPendingMonthConsumed();
   }, [open, pendingMonthIndex, onPendingMonthConsumed]);
+
+  useLayoutEffect(() => {
+    setSavedAlbumCoverUrl(null);
+    setContent("");
+    setLoadingContent(true);
+    setImageLoading(Boolean(selectedAlbum?.imageUrl));
+  }, [modalYear, selectedMonth, selectedAlbum?.imageUrl]);
+
+  useEffect(() => {
+    if (open) {
+      setDialogPlaybackNonce((n) => n + 1);
+      return;
+    }
+    stopAudioPlayback();
+  }, [open, stopAudioPlayback]);
 
   useEffect(() => {
     const username = localStorage.getItem("lastfm_username");
@@ -175,10 +198,12 @@ export function ModalExtraContent({
 
   useEffect(() => {
     const el = audioRef.current;
-    if (!el || !audioSrc) {
-      if (el && !audioSrc) {
+    if (!open || !el || !audioSrc) {
+      if (el && (!open || !audioSrc)) {
         el.pause();
-        el.removeAttribute("src");
+        if (!open) {
+          el.removeAttribute("src");
+        }
       }
       return;
     }
@@ -201,6 +226,7 @@ export function ModalExtraContent({
 
     el.loop = false;
     el.src = audioSrc;
+    el.load();
     el.addEventListener("ended", onEnded);
 
     if (el.readyState >= HTMLMediaElement.HAVE_METADATA) {
@@ -214,7 +240,7 @@ export function ModalExtraContent({
       el.removeEventListener("loadedmetadata", beginPlayback);
       el.pause();
     };
-  }, [audioSrc, audioUi.startSeconds, dialogPlaybackNonce]);
+  }, [open, audioSrc, audioUi.startSeconds, dialogPlaybackNonce]);
 
   useEffect(() => {
     setImageLoading(Boolean(backgroundImageUrl));
@@ -370,11 +396,6 @@ export function ModalExtraContent({
           setModalYear(year);
         }
         onOpenChange(nextOpen);
-        if (nextOpen) {
-          setDialogPlaybackNonce((n) => n + 1);
-        } else {
-          audioRef.current?.pause();
-        }
       }}
       trigger={
         <div className={styles.secretIcon}>
@@ -394,6 +415,7 @@ export function ModalExtraContent({
       <div className={styles.dialogContent}>
         {backgroundImageUrl ? (
           <Image
+            key={`${modalYear}-${selectedMonth}-${backgroundImageUrl}`}
             className={`${styles.albumBackgroundImage} ${imageLoading ? styles.albumImageLoading : ""}`}
             src={backgroundImageUrl}
             alt={selectedAlbum?.name || selectedMonth}
@@ -509,8 +531,7 @@ export function ModalExtraContent({
             ) : (
               <div
                 className={
-                  `${styles.diaryText}${
-                    !loadingContent && !content ? ` ${styles.diaryTextPlaceholder}` : ""
+                  `${styles.diaryText}${!loadingContent && !content ? ` ${styles.diaryTextPlaceholder}` : ""
                   }`
                 }
                 onClick={() => setEditing(true)}
