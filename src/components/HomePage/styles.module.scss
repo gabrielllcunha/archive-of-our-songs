@@ -3,6 +3,8 @@
   height: 100%;
   padding: 1.5rem;
   display: flex;
+  position: relative;
+  overflow: hidden;
   background-color: #0A0A0A;
   background-image: url('/images/noise.png');
   background-size: cover;
@@ -11,63 +13,94 @@
 }
 
 .gradientWrapper {
-  width: 258px;
-  height: 292px;
-  position: absolute;
+  position: fixed;
+  inset: 0;
   z-index: 0;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  filter: blur(65px);
+  overflow: hidden;
+  filter: blur(92px);
+  opacity: 0.68;
+  pointer-events: none;
 
   .gradient1,
   .gradient2 {
-    width: 125px;
-    height: 125px;
+    width: clamp(240px, 32vw, 380px);
+    height: clamp(240px, 32vw, 380px);
     position: absolute;
     border-radius: 50%;
+    will-change: transform;
   }
 
   .gradient1 {
-    bottom: 0;
-    left: 0;
-    animation: path1 5s ease-in-out infinite;
+    left: 6%;
+    bottom: 9%;
+    animation: floatAcross1 46s cubic-bezier(0.4, 0.02, 0.6, 0.98) infinite;
   }
 
   .gradient2 {
-    top: 0;
-    right: 0;
-    animation: path2 5s ease-in-out infinite;
-    animation-delay: 1.5s;
+    top: 9%;
+    right: 6%;
+    left: auto;
+    animation: floatAcross2 52s cubic-bezier(0.4, 0.02, 0.6, 0.98) infinite;
+    animation-delay: -22s;
   }
 
   &.albumsColors {
     .gradient1 {
-      background: #731DD8;
+      background: radial-gradient(
+        circle at 32% 28%,
+        rgba(196, 151, 255, 0.8) 0%,
+        rgba(115, 29, 216, 0.85) 38%,
+        rgba(115, 29, 216, 0.32) 72%
+      );
     }
 
     .gradient2 {
-      background: #48A9A6;
+      background: radial-gradient(
+        circle at 68% 72%,
+        rgba(134, 232, 224, 0.8) 0%,
+        rgba(72, 169, 166, 0.85) 38%,
+        rgba(72, 169, 166, 0.3) 72%
+      );
     }
   }
 
   &.artistsColors {
     .gradient1 {
-      background: #E9141B;
+      background: radial-gradient(
+        circle at 30% 30%,
+        rgba(255, 120, 125, 0.8) 0%,
+        rgba(233, 20, 27, 0.85) 38%,
+        rgba(233, 20, 27, 0.3) 72%
+      );
     }
 
     .gradient2 {
-      background: #4BF218;
+      background: radial-gradient(
+        circle at 70% 70%,
+        rgba(164, 255, 132, 0.8) 0%,
+        rgba(75, 242, 24, 0.85) 38%,
+        rgba(75, 242, 24, 0.28) 72%
+      );
     }
   }
 
   &.songsColors {
     .gradient1 {
-      background: #FF780A;
+      background: radial-gradient(
+        circle at 34% 26%,
+        rgba(255, 176, 96, 0.8) 0%,
+        rgba(255, 120, 10, 0.85) 38%,
+        rgba(255, 120, 10, 0.3) 72%
+      );
     }
 
     .gradient2 {
-      background: #EE216F;
+      background: radial-gradient(
+        circle at 66% 74%,
+        rgba(255, 132, 176, 0.8) 0%,
+        rgba(238, 33, 111, 0.85) 38%,
+        rgba(238, 33, 111, 0.3) 72%
+      );
     }
   }
 }
@@ -219,47 +252,81 @@
   }
 }
 
-@keyframes path1 {
-  0% {
-    transform: translate(0, 0);
+@keyframes floatAcross1 {
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
+
+  12% {
+    transform: translate(10vw, -6vh) scale(1.01);
   }
 
   25% {
-    transform: translate(-50px, -75px);
+    transform: translate(22vw, -14vh) scale(0.99);
+  }
+
+  38% {
+    transform: translate(34vw, -20vh) scale(1);
   }
 
   50% {
-    transform: translate(-75px, 55px);
+    transform: translate(28vw, -26vh) scale(1.01);
+  }
+
+  62% {
+    transform: translate(16vw, -12vh) scale(0.99);
   }
 
   75% {
-    transform: translate(75px, -40px);
+    transform: translate(32vw, -8vh) scale(1);
   }
 
-  100% {
-    transform: translate(0, 0);
+  88% {
+    transform: translate(12vw, -18vh) scale(1.01);
+  }
+
+  96% {
+    transform: translate(6vw, -4vh) scale(0.99);
   }
 }
 
-@keyframes path2 {
-  0% {
-    transform: translate(0, 0);
-  }
-
-  25% {
-    transform: translate(55px, 80px);
-  }
-
-  50% {
-    transform: translate(-65px, -75px);
-  }
-
-  75% {
-    transform: translate(50px, 90px);
-  }
-
+@keyframes floatAcross2 {
+  0%,
   100% {
-    transform: translate(0, 0);
+    transform: translate(0, 0) scale(1);
+  }
+
+  14% {
+    transform: translate(-10vw, 10vh) scale(0.99);
+  }
+
+  27% {
+    transform: translate(-22vw, 16vh) scale(1.01);
+  }
+
+  40% {
+    transform: translate(-34vw, 20vh) scale(1);
+  }
+
+  52% {
+    transform: translate(-28vw, 24vh) scale(0.99);
+  }
+
+  64% {
+    transform: translate(-16vw, 12vh) scale(1.01);
+  }
+
+  77% {
+    transform: translate(-30vw, 8vh) scale(1);
+  }
+
+  90% {
+    transform: translate(-14vw, 18vh) scale(0.99);
+  }
+
+  96% {
+    transform: translate(-8vw, 6vh) scale(1);
   }
 }
 
