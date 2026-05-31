@@ -303,7 +303,7 @@ export function HomePage() {
     return (
       <div className={styles.loadingWrapper}>
         <div className={styles.loading}>
-          <Progress value={fetchProgressPercent} />
+          <Progress value={fetchProgressPercent} active />
         </div>
         <div className={styles.loadingText}>
           <span>Loading {name}...</span>

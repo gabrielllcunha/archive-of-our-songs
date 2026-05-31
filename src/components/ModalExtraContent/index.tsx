@@ -365,6 +365,10 @@ export function ModalExtraContent({
       allowClose={false}
       contentClassName={styles.dialogContainer}
       onOpenChange={(nextOpen) => {
+        if (nextOpen && pendingMonthIndex === null) {
+          setSelectedMonthIndex(0);
+          setModalYear(year);
+        }
         onOpenChange(nextOpen);
         if (nextOpen) {
           setDialogPlaybackNonce((n) => n + 1);
