@@ -6,6 +6,8 @@ import { Button, MonthItem, Popover, Progress, SegmentedControl, Select, Spinner
 import { fetchDataFromEndpoint } from "@/utils/fetchDataFromEndpoint";
 import { authenticatedFetch, onUnauthorizedSession, performUnauthorizedLogout, UnauthorizedSessionError } from "@/utils/authenticatedFetch";
 import { yearlyDataStorage, type MonthlyEntry } from '@/services/yearlyDataStorage';
+import { getMonthsNeedingFetch } from '@/utils/monthlyEntryCompleteness';
+import type { YearlyDataType } from '@/services/supabaseService';
 import { supabase } from "@/utils/supabase";
 import { ModalExtraContent } from "../ModalExtraContent";
 import { ModalInitialConfig } from "../ModalInitialConfig";
@@ -137,6 +139,19 @@ export function HomePage() {
   }, [months]);
 
   const fetchData = useCallback(async (endpoint: string, setter: React.Dispatch<React.SetStateAction<any[]>>, signal: AbortSignal, forceRefresh = false) => {
+    const dataType: YearlyDataType =
+      endpoint === "fetch-albums-by-month" ? "albums" :
+        endpoint === "fetch-artists-by-month" ? "artists" : "songs";
+
+    const restoreFromStorage = async () => {
+      const username = localStorage.getItem('lastfm_username');
+      if (!username) return;
+      const cached = await yearlyDataStorage.getYearlyData(username, year, dataType);
+      if (cached && cached.length > 0) {
+        setter(cached);
+      }
+    };
+
     try {
       const username = localStorage.getItem('lastfm_username');
       if (!username) {
@@ -146,8 +161,7 @@ export function HomePage() {
         const storedData = await yearlyDataStorage.getYearlyData(
           username,
           year,
-          endpoint === "fetch-albums-by-month" ? "albums" :
-            endpoint === "fetch-artists-by-month" ? "artists" : "songs"
+          dataType
         );
 
         if (storedData && storedData.length > 0) {
@@ -165,45 +179,22 @@ export function HomePage() {
       const storedData = await yearlyDataStorage.getYearlyData(
         username,
         year,
-        endpoint === "fetch-albums-by-month" ? "albums" :
-          endpoint === "fetch-artists-by-month" ? "artists" : "songs"
+        dataType
       );
-      const incorrectCacheData = storedData?.filter(entry =>
-        !entry.name ||
-        (endpoint !== "fetch-artists-by-month" && !entry.artist) ||
-        entry.scrobbles === 0 ||
-        !entry.imageUrl
-      ).map(entry => entry.month) || [];
-      let monthsPayload = undefined;
-      if (forceRefresh) {
-        if (year === currentYear) {
-          const currentMonthNameIndex = new Date().getMonth();
-          monthsPayload = months.slice(0, currentMonthNameIndex + 1);
-        } else {
-          monthsPayload = months;
-        }
-      } else if (year === currentYear) {
-        const currentMonthNameIndex = new Date().getMonth();
-        monthsPayload = months.slice(0, currentMonthNameIndex + 1);
-      } else if (storedData) {
-        monthsPayload = incorrectCacheData;
-        if (storedData) {
-          const allMonths = months;
-          const missingMonths = allMonths.filter(month => !storedData.some(data => data.month === month));
-          monthsPayload = Array.from(new Set([...(monthsPayload || []), ...missingMonths]));
-        }
-      }
-      if (storedData && (!monthsPayload || monthsPayload.length === 0)) {
+      const monthsPayload = getMonthsNeedingFetch(
+        storedData,
+        months,
+        dataType,
+        year,
+        currentYear
+      );
+
+      if (storedData && monthsPayload.length === 0) {
         setter(storedData);
         return;
       }
 
-      const effectiveMonths =
-        monthsPayload && monthsPayload.length > 0 ? monthsPayload : months;
-      const monthOrder = new Map(months.map((m, i) => [m, i]));
-      const orderedPayload = [...effectiveMonths].sort(
-        (a, b) => (monthOrder.get(a) ?? 0) - (monthOrder.get(b) ?? 0)
-      );
+      const orderedPayload = monthsPayload;
 
       let monthsToDisplay = months;
       if (year === currentYear) {
@@ -215,13 +206,21 @@ export function HomePage() {
         monthsToDisplay.map((monthName) => {
           return (
             yearRows.find((item: Album | Singer | Song) => item.month === monthName) ||
+            storedData?.find((item) => item.month === monthName) ||
             { month: monthName, name: '', artist: '', imageUrl: '', scrobbles: 0 }
           );
         });
 
       const totalFetches = orderedPayload.length;
       if (totalFetches === 0) {
+        if (storedData && storedData.length > 0) {
+          setter(storedData);
+        }
         return;
+      }
+
+      if (storedData && storedData.length > 0) {
+        setter(storedData);
       }
 
       setDataLoadState('downloading');
@@ -236,53 +235,54 @@ export function HomePage() {
           months: [monthName],
           ...(forceRefresh && { forceRefresh: true }),
         };
-        const yearRows = (await fetchDataFromEndpoint(
-          endpoint,
-          payload,
-          signal
-        )) as Album[] | Singer[] | Song[];
-        const displayData = mapServerYearToDisplay(yearRows);
-        setter(displayData);
-        const forStorage: MonthlyEntry[] = displayData.map((item) => ({
-          month: item.month,
-          name: item.name,
-          artist: 'artist' in item && typeof item.artist === 'string' ? item.artist : '',
-          imageUrl: item.imageUrl,
-          scrobbles: item.scrobbles,
-        }));
-        await yearlyDataStorage.storeYearlyData(
-          username,
-          year,
-          endpoint === "fetch-albums-by-month" ? "albums" :
-            endpoint === "fetch-artists-by-month" ? "artists" : "songs",
-          forStorage
-        );
+        try {
+          const yearRows = (await fetchDataFromEndpoint(
+            endpoint,
+            payload,
+            signal
+          )) as Album[] | Singer[] | Song[];
+          const displayData = mapServerYearToDisplay(yearRows);
+          setter(displayData);
+          const forStorage: MonthlyEntry[] = displayData.map((item) => ({
+            month: item.month,
+            name: item.name,
+            artist: 'artist' in item && typeof item.artist === 'string' ? item.artist : '',
+            imageUrl: item.imageUrl,
+            scrobbles: item.scrobbles,
+          }));
+          await yearlyDataStorage.storeYearlyData(
+            username,
+            year,
+            dataType,
+            forStorage
+          );
+        } catch (monthError) {
+          if (monthError instanceof UnauthorizedSessionError) {
+            throw monthError;
+          }
+          console.error(`Error fetching ${monthName} from ${endpoint}:`, monthError);
+          await restoreFromStorage();
+        }
         const done = i + 1;
         const pct =
           totalFetches === 0 ? 100 : Math.min(100, (done / totalFetches) * 100);
         setFetchProgressPercent(pct);
+      }
+
+      if (!signal.aborted) {
+        await restoreFromStorage();
       }
     } catch (error) {
       if (error instanceof UnauthorizedSessionError) {
         return;
       }
       console.error(`Error fetching from ${endpoint}:`, error);
-      switch (endpoint) {
-        case "fetch-albums-by-month":
-          setAlbums([]);
-          break;
-        case "fetch-artists-by-month":
-          setArtists([]);
-          break;
-        case "fetch-songs-by-month":
-          setSongs([]);
-          break;
-        default:
-          break;
-      }
+      await restoreFromStorage();
     } finally {
       setFetchProgressPercent(0);
-      setDataLoadState('idle');
+      if (!signal.aborted) {
+        setDataLoadState('idle');
+      }
     }
   }, [year, months, currentYear, buildEmptyCurrentYearEntries]);
 

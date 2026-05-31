@@ -4,6 +4,7 @@ import { launchChromiumForScraping } from '@/utils/server/launchChromiumForScrap
 import { supabaseService } from '@/services/supabaseService';
 import { requireSupabaseAnonClientFromBearer } from '@/utils/server/requireSupabaseAnonFromBearer';
 import { mergeMonthlyPayloadWithStored } from '@/utils/server/mergeMonthlyYearlyData';
+import { isIncompleteMonthlyEntry } from '@/utils/monthlyEntryCompleteness';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') {
@@ -38,7 +39,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       if (storedData && months) {
         const incompleteMonths = months.filter((month: string) => {
           const monthData = storedData.find(data => data.month === month);
-          return !monthData || !monthData.name || !monthData.artist || monthData.scrobbles === 0 || !monthData.imageUrl;
+          return !monthData || isIncompleteMonthlyEntry(monthData, 'songs');
         });
 
         if (incompleteMonths.length === 0) {
