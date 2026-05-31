@@ -1,6 +1,5 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import { login } from '@/utils/login';
-import { launchChromiumForScraping } from '@/utils/server/launchChromiumForScraping';
+import { withLastfmScraperPage } from '@/utils/server/withLastfmScraperPage';
 import { supabaseService } from '@/services/supabaseService';
 import { requireSupabaseAnonClientFromBearer } from '@/utils/server/requireSupabaseAnonFromBearer';
 import { mergeMonthlyPayloadWithStored } from '@/utils/server/mergeMonthlyYearlyData';
@@ -53,72 +52,75 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       "July", "August", "September", "October", "November", "December"
     ];
     const monthsToFetch = months || allMonths;
-    const artists = [];
-
-    const browser = await launchChromiumForScraping();
-    const page = await browser.newPage();
+    const artists: Array<{
+      month: string;
+      name: string;
+      artist: string;
+      imageUrl: string;
+      scrobbles: number;
+    }> = [];
 
     try {
-      await login(page, username, password);
+      await withLastfmScraperPage(username, password, async (page) => {
+        for (const month of monthsToFetch) {
+          const month_index = allMonths.indexOf(month) + 1;
+          if (month_index === 0) continue;
+          const url = `https://www.last.fm/user/${target_account}/library/artists?from=${year}-${String(month_index).padStart(2, '0')}-01&rangetype=1month&page=1`;
+          await page.goto(url, { timeout: 60000 });
 
-      for (const month of monthsToFetch) {
-        const month_index = allMonths.indexOf(month) + 1;
-        if (month_index === 0) continue;
-        const url = `https://www.last.fm/user/${target_account}/library/artists?from=${year}-${String(month_index).padStart(2, '0')}-01&rangetype=1month&page=1`;
-        await page.goto(url, { timeout: 60000 });
+          try {
+            await page.waitForSelector('tbody[data-chart-date-range]', { timeout: 10000 });
+            const artist_row = page.locator('tbody[data-chart-date-range] > tr:first-child');
+            const artist_name = await artist_row.locator('.chartlist-name a').getAttribute('title');
+            const scrobbles: any = await artist_row.locator('.chartlist-bar .chartlist-count-bar-value').innerText();
+            const scrobblesQty = scrobbles ? parseInt(scrobbles.split()[0]) : 0;
 
-        try {
-          await page.waitForSelector('tbody[data-chart-date-range]', { timeout: 10000 });
-          const artist_row = page.locator('tbody[data-chart-date-range] > tr:first-child');
-          const artist_name = await artist_row.locator('.chartlist-name a').getAttribute('title');
-          const scrobbles: any = await artist_row.locator('.chartlist-bar .chartlist-count-bar-value').innerText();
-          const scrobblesQty = scrobbles ? parseInt(scrobbles.split()[0]) : 0;
+            const artist_page_path = await artist_row.locator('.chartlist-name a').getAttribute('href');
+            let image_url: any = "";
 
-          const artist_page_path = await artist_row.locator('.chartlist-name a').getAttribute('href');
-          let image_url: any = "";
-
-          if (artist_page_path) {
-            const artist_page_url = `https://www.last.fm${artist_page_path}`;
-            await page.goto(artist_page_url, { timeout: 60000 });
-            try {
-              await page.waitForSelector('div.header-new-gallery-outer', { timeout: 10000 });
-              const first_image_link = await page.locator('div.header-new-gallery-outer a.header-new-gallery').getAttribute('href');
-              if (first_image_link) {
-                const high_res_image_url = `https://www.last.fm${first_image_link}`;
-                await page.goto(high_res_image_url, { timeout: 60000 });
-                try {
-                  await page.waitForSelector('div.gallery-slides', { timeout: 10000 });
-                  const first_gallery_link = page.locator('div.gallery-slides a.gallery-image').first();
-                  image_url = await first_gallery_link.locator('img.js-gallery-image').getAttribute('src');
-                } catch (e) {
-                  console.error(`Failed to fetch high-res image for ${artist_name}:`, e);
+            if (artist_page_path) {
+              const artist_page_url = `https://www.last.fm${artist_page_path}`;
+              await page.goto(artist_page_url, { timeout: 60000 });
+              try {
+                await page.waitForSelector('div.header-new-gallery-outer', { timeout: 10000 });
+                const first_image_link = await page.locator('div.header-new-gallery-outer a.header-new-gallery').getAttribute('href');
+                if (first_image_link) {
+                  const high_res_image_url = `https://www.last.fm${first_image_link}`;
+                  await page.goto(high_res_image_url, { timeout: 60000 });
+                  try {
+                    await page.waitForSelector('div.gallery-slides', { timeout: 10000 });
+                    const first_gallery_link = page.locator('div.gallery-slides a.gallery-image').first();
+                    image_url = await first_gallery_link.locator('img.js-gallery-image').getAttribute('src');
+                  } catch (e) {
+                    console.error(`Failed to fetch high-res image for ${artist_name}:`, e);
+                  }
                 }
+              } catch (e) {
+                console.error(`Failed to fetch artist page for ${artist_name}:`, e);
               }
-            } catch (e) {
-              console.error(`Failed to fetch artist page for ${artist_name}:`, e);
             }
-          }
 
-          if (artist_name) {
+            if (artist_name) {
+              artists.push({
+                month,
+                name: artist_name,
+                artist: '',
+                imageUrl: image_url || "",
+                scrobbles: scrobblesQty,
+              });
+            }
+          } catch (e) {
+            console.error(`Failed to fetch data for ${month}:`, e);
             artists.push({
               month,
-              name: artist_name,
+              name: '',
               artist: '',
-              imageUrl: image_url || "",
-              scrobbles: scrobblesQty,
+              imageUrl: '',
+              scrobbles: 0,
             });
           }
-        } catch (e) {
-          console.error(`Failed to fetch data for ${month}:`, e);
-          artists.push({
-            month,
-            name: '',
-            artist: '',
-            imageUrl: '',
-            scrobbles: 0,
-          });
         }
-      }
+      });
 
       const mergedArtists = mergeMonthlyPayloadWithStored(allMonths, storedData, artists);
       await supabaseService.storeYearlyData(
@@ -134,8 +136,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     } catch (e) {
       console.error('Failed during login or scraping:', e);
       res.status(500).json({ error: 'Failed to fetch artists' });
-    } finally {
-      await browser.close();
     }
   } catch (error) {
     console.error('Error in fetch-artists-by-month:', error);

@@ -1,6 +1,5 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import { login } from '@/utils/login';
-import { launchChromiumForScraping } from '@/utils/server/launchChromiumForScraping';
+import { withLastfmScraperPage } from '@/utils/server/withLastfmScraperPage';
 import { supabaseService } from '@/services/supabaseService';
 import { requireSupabaseAnonClientFromBearer } from '@/utils/server/requireSupabaseAnonFromBearer';
 import { mergeMonthlyPayloadWithStored } from '@/utils/server/mergeMonthlyYearlyData';
@@ -53,82 +52,85 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       "July", "August", "September", "October", "November", "December"
     ];
     const monthsToFetch = months || allMonths;
-    const songs = [];
-
-    const browser = await launchChromiumForScraping();
-    const page = await browser.newPage();
+    const songs: Array<{
+      month: string;
+      name: string;
+      artist: string;
+      imageUrl: string;
+      scrobbles: number;
+    }> = [];
 
     try {
-      await login(page, username, password);
+      await withLastfmScraperPage(username, password, async (page) => {
+        for (const month of monthsToFetch) {
+          const month_index = allMonths.indexOf(month) + 1;
+          if (month_index === 0) continue;
+          const url = `https://www.last.fm/user/${target_account}/library/tracks?from=${year}-${String(month_index).padStart(2, '0')}-01&rangetype=1month&page=1`;
+          await page.goto(url, { timeout: 60000 });
 
-      for (const month of monthsToFetch) {
-        const month_index = allMonths.indexOf(month) + 1;
-        if (month_index === 0) continue;
-        const url = `https://www.last.fm/user/${target_account}/library/tracks?from=${year}-${String(month_index).padStart(2, '0')}-01&rangetype=1month&page=1`;
-        await page.goto(url, { timeout: 60000 });
+          try {
+            await page.waitForSelector('tbody[data-chart-date-range]', { timeout: 10000 });
+            const song_row = page.locator('tbody[data-chart-date-range] > tr:first-child');
+            const song_name = await song_row.locator('.chartlist-name a').getAttribute('title');
+            const artist_name = await song_row.locator('.chartlist-artist a').getAttribute('title');
+            const scrobbles: any = await song_row.locator('.chartlist-bar .chartlist-count-bar-value').innerText();
+            const scrobblesQty = scrobbles ? parseInt(scrobbles.split()[0]) : 0;
 
-        try {
-          await page.waitForSelector('tbody[data-chart-date-range]', { timeout: 10000 });
-          const song_row = page.locator('tbody[data-chart-date-range] > tr:first-child');
-          const song_name = await song_row.locator('.chartlist-name a').getAttribute('title');
-          const artist_name = await song_row.locator('.chartlist-artist a').getAttribute('title');
-          const scrobbles: any = await song_row.locator('.chartlist-bar .chartlist-count-bar-value').innerText();
-          const scrobblesQty = scrobbles ? parseInt(scrobbles.split()[0]) : 0;
+            const song_link = await song_row.locator('.chartlist-name a').getAttribute('href');
+            const full_song_url = `https://www.last.fm${song_link}`;
+            let image_url: any = "";
 
-          const song_link = await song_row.locator('.chartlist-name a').getAttribute('href');
-          const full_song_url = `https://www.last.fm${song_link}`;
-          let image_url: any = "";
-
-          if (song_link) {
-            await page.goto(full_song_url, { timeout: 60000 });
-            try {
-              await page.waitForSelector('h4.source-album-name > a.link-block-target[itemprop="url"]', { timeout: 100000 });
-              const album_link = await page.locator('h4.source-album-name > a.link-block-target[itemprop="url"]').first().getAttribute('href');
-              if (album_link) {
-                const full_album_url = `https://www.last.fm${album_link}`;
-                await page.goto(full_album_url, { timeout: 60000 });
-                try {
-                  await page.waitForSelector('a.cover-art', { timeout: 10000 });
-                  const cover_art_link = await page.locator('a.cover-art').getAttribute('href');
-                  if (cover_art_link) {
-                    const cover_art_url = `https://www.last.fm${cover_art_link}`;
-                    await page.goto(cover_art_url);
-                    await page.waitForTimeout(1000);
-                    image_url = await page.locator('meta[property="og:image"]').getAttribute('content');
+            if (song_link) {
+              await page.goto(full_song_url, { timeout: 60000 });
+              try {
+                await page.waitForSelector('h4.source-album-name > a.link-block-target[itemprop="url"]', { timeout: 100000 });
+                const album_link = await page.locator('h4.source-album-name > a.link-block-target[itemprop="url"]').first().getAttribute('href');
+                if (album_link) {
+                  const full_album_url = `https://www.last.fm${album_link}`;
+                  await page.goto(full_album_url, { timeout: 60000 });
+                  try {
+                    await page.waitForSelector('a.cover-art', { timeout: 10000 });
+                    const cover_art_link = await page.locator('a.cover-art').getAttribute('href');
+                    if (cover_art_link) {
+                      const cover_art_url = `https://www.last.fm${cover_art_link}`;
+                      await page.goto(cover_art_url);
+                      await page.waitForTimeout(1000);
+                      image_url = await page.locator('meta[property="og:image"]').getAttribute('content');
+                    }
+                  } catch (e) {
+                    console.error(`Failed to fetch album page for ${song_name}:`, e);
                   }
-                } catch (e) {
-                  console.error(`Failed to fetch album page for ${song_name}:`, e);
+                } else {
+                  console.error('Album link not found.');
                 }
-              } else {
-                console.error('Album link not found.');
+              } catch (e) {
+                console.error(`Failed to fetch song page for ${song_name}:`, e);
               }
-            } catch (e) {
-              console.error(`Failed to fetch song page for ${song_name}:`, e);
+            } else {
+              console.error('Song link not found.');
             }
-          } else {
-            console.error('Song link not found.');
-          }
 
-          if (song_name) {
+            if (song_name) {
+              songs.push({
+                month,
+                name: song_name,
+                artist: artist_name || "",
+                imageUrl: image_url || "",
+                scrobbles: scrobblesQty,
+              });
+            }
+          } catch (e) {
+            console.error(`Failed to fetch data for ${month}:`, e);
             songs.push({
               month,
-              name: song_name,
-              artist: artist_name || "",
-              imageUrl: image_url || "",
-              scrobbles: scrobblesQty,
+              name: "",
+              artist: "",
+              imageUrl: "",
+              scrobbles: 0,
             });
           }
-        } catch (e) {
-          console.error(`Failed to fetch data for ${month}:`, e);
-          songs.push({
-            month,
-            name: "",
-            artist: "",
-            imageUrl: "",
-            scrobbles: 0,
-          });
         }
-      }
+      });
 
       const mergedSongs = mergeMonthlyPayloadWithStored(allMonths, storedData, songs);
       await supabaseService.storeYearlyData(
@@ -144,8 +146,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     } catch (e) {
       console.error('Failed during login or scraping:', e);
       res.status(500).json({ error: 'Failed to fetch songs' });
-    } finally {
-      await browser.close();
     }
   } catch (error) {
     console.error('Error in fetch-songs-by-month:', error);

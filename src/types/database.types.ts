@@ -122,6 +122,23 @@ export interface Database {
           updated_at?: string
         }
       }
+      scraper_browser_sessions: {
+        Row: {
+          account_username: string
+          storage_state: Json
+          updated_at: string
+        }
+        Insert: {
+          account_username: string
+          storage_state: Json
+          updated_at?: string
+        }
+        Update: {
+          account_username?: string
+          storage_state?: Json
+          updated_at?: string
+        }
+      }
     }
   }
 } 
