@@ -4,6 +4,7 @@ import { CalendarIcon, DotsVerticalIcon, ListBulletIcon, UpdateIcon } from "@rad
 import { Album, Singer, Song } from "@/models";
 import { Button, MonthItem, Popover, Progress, SegmentedControl, Select, Spinner, Tabs, TabsContent, TabsList, TabsTrigger } from '@/components';
 import { fetchDataFromEndpoint } from "@/utils/fetchDataFromEndpoint";
+import { authenticatedFetch, onUnauthorizedSession, performUnauthorizedLogout, UnauthorizedSessionError } from "@/utils/authenticatedFetch";
 import { yearlyDataStorage, type MonthlyEntry } from '@/services/yearlyDataStorage';
 import { supabase } from "@/utils/supabase";
 import { ModalExtraContent } from "../ModalExtraContent";
@@ -30,22 +31,38 @@ export function HomePage() {
   const abortControllerRef = useRef<AbortController | null>(null);
   const isRefreshingRef = useRef(false);
   const earliestSelectableYear = 2021;
-  const latestSelectableYear = currentYear - 1;
+  const defaultLatestSelectableYear = currentYear - 1;
 
   const [sessionStarted, setSessionStarted] = useState(false);
+  const [canAccessCurrentYear, setCanAccessCurrentYear] = useState(false);
   const [extraModalOpen, setExtraModalOpen] = useState(false);
   const [extraModalPendingMonth, setExtraModalPendingMonth] = useState<number | null>(null);
   const [yearSelectRevision, setYearSelectRevision] = useState(0);
 
+  const latestSelectableYear = canAccessCurrentYear ? currentYear : defaultLatestSelectableYear;
+
+  const yearOptions = useMemo(() => {
+    const years = [];
+    for (let i = earliestSelectableYear; i <= latestSelectableYear; i++) {
+      years.push({ value: String(i), label: String(i) });
+    }
+    return years;
+  }, [earliestSelectableYear, latestSelectableYear]);
+
   const handleTabChange = (value: string) => {
-    setDataLoadState('checking');
+    if (year !== currentYear) {
+      setDataLoadState('checking');
+    }
     setActiveTab(value);
   };
 
   const handleYearChange = (value: string) => {
-    setDataLoadState('checking');
-    setYear(Number(value));
+    const nextYear = Number(value);
+    setYear(nextYear);
     setYearSelectRevision((r) => r + 1);
+    if (nextYear !== currentYear) {
+      setDataLoadState('checking');
+    }
   };
 
   const handleSessionStarted = useCallback(() => {
@@ -64,9 +81,11 @@ export function HomePage() {
   }, []);
 
   const handleModalYearChange = useCallback((nextYear: number) => {
-    setDataLoadState('checking');
+    if (nextYear !== currentYear) {
+      setDataLoadState('checking');
+    }
     setYear(nextYear);
-  }, []);
+  }, [currentYear]);
 
   const openExtraModalForAlbumMonth = useCallback((monthIndex: number) => {
     setExtraModalPendingMonth(monthIndex);
@@ -106,15 +125,16 @@ export function HomePage() {
     }
   };
 
-  const generateYearOptions = () => {
-    const startYear = 2021;
-    const years = [];
-    const latestSelectableYear = currentYear - 1;
-    for (let i = startYear; i <= latestSelectableYear; i++) {
-      years.push({ value: String(i), label: String(i) });
-    }
-    return years;
-  };
+  const buildEmptyCurrentYearEntries = useCallback((): MonthlyEntry[] => {
+    const currentMonthNameIndex = new Date().getMonth();
+    return months.slice(0, currentMonthNameIndex + 1).map((month) => ({
+      month,
+      name: '',
+      artist: '',
+      imageUrl: '',
+      scrobbles: 0,
+    }));
+  }, [months]);
 
   const fetchData = useCallback(async (endpoint: string, setter: React.Dispatch<React.SetStateAction<any[]>>, signal: AbortSignal, forceRefresh = false) => {
     try {
@@ -134,6 +154,11 @@ export function HomePage() {
           setter(storedData);
           return;
         }
+
+        if (year === currentYear) {
+          setter(buildEmptyCurrentYearEntries());
+          return;
+        }
       }
 
       setDataLoadState('checking');
@@ -151,7 +176,12 @@ export function HomePage() {
       ).map(entry => entry.month) || [];
       let monthsPayload = undefined;
       if (forceRefresh) {
-        monthsPayload = months;
+        if (year === currentYear) {
+          const currentMonthNameIndex = new Date().getMonth();
+          monthsPayload = months.slice(0, currentMonthNameIndex + 1);
+        } else {
+          monthsPayload = months;
+        }
       } else if (year === currentYear) {
         const currentMonthNameIndex = new Date().getMonth();
         monthsPayload = months.slice(0, currentMonthNameIndex + 1);
@@ -233,6 +263,9 @@ export function HomePage() {
         setFetchProgressPercent(pct);
       }
     } catch (error) {
+      if (error instanceof UnauthorizedSessionError) {
+        return;
+      }
       console.error(`Error fetching from ${endpoint}:`, error);
       switch (endpoint) {
         case "fetch-albums-by-month":
@@ -251,11 +284,10 @@ export function HomePage() {
       setFetchProgressPercent(0);
       setDataLoadState('idle');
     }
-  }, [year, months, currentYear]);
+  }, [year, months, currentYear, buildEmptyCurrentYearEntries]);
 
   useEffect(() => {
     if (!authenticatedWithLastfm) return;
-    setDataLoadState('checking');
     abortControllerRef.current?.abort();
     abortControllerRef.current = new AbortController();
     const { signal } = abortControllerRef.current;
@@ -279,24 +311,70 @@ export function HomePage() {
     };
   }, [activeTab, year, fetchData, authenticatedWithLastfm]);
 
-  useEffect(() => {
-    if (!authenticatedWithLastfm) {
-      setLastfmUsername(null);
-      return;
-    }
-    setLastfmUsername(localStorage.getItem("lastfm_username"));
-  }, [authenticatedWithLastfm]);
-
-  const handleLogout = async () => {
+  const applyLoggedOutState = useCallback(() => {
     setSessionStarted(false);
-    await supabase?.auth.signOut();
-    localStorage.removeItem("lastfm_username");
-    localStorage.removeItem("lastfm_token");
-    localStorage.removeItem("lastfm_auth_started");
     setAuthenticatedWithLastfm(false);
     setAlbums([]);
     setArtists([]);
     setSongs([]);
+  }, []);
+
+  useEffect(() => {
+    return onUnauthorizedSession(applyLoggedOutState);
+  }, [applyLoggedOutState]);
+
+  useEffect(() => {
+    if (!supabase) return;
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'SIGNED_OUT') {
+        localStorage.removeItem('lastfm_username');
+        localStorage.removeItem('lastfm_token');
+        localStorage.removeItem('lastfm_auth_started');
+        applyLoggedOutState();
+      }
+    });
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [applyLoggedOutState]);
+
+  useEffect(() => {
+    if (!authenticatedWithLastfm) {
+      setLastfmUsername(null);
+      setCanAccessCurrentYear(false);
+      return;
+    }
+    setLastfmUsername(localStorage.getItem("lastfm_username"));
+
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await authenticatedFetch("/api/user/year-access");
+        if (!res.ok) return;
+        const data = (await res.json()) as { canAccessCurrentYear?: boolean };
+        if (!cancelled) {
+          setCanAccessCurrentYear(Boolean(data.canAccessCurrentYear));
+        }
+      } catch (error) {
+        if (error instanceof UnauthorizedSessionError) return;
+        if (!cancelled) {
+          setCanAccessCurrentYear(false);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [authenticatedWithLastfm]);
+
+  useEffect(() => {
+    if (canAccessCurrentYear || year !== currentYear) return;
+    setYear(defaultLatestSelectableYear);
+  }, [canAccessCurrentYear, currentYear, defaultLatestSelectableYear, year]);
+
+  const handleLogout = async () => {
+    await performUnauthorizedLogout();
   };
 
   const renderProgressBar = (name: string) => {
@@ -379,7 +457,7 @@ export function HomePage() {
               <Select
                 value={String(year)}
                 onChange={handleYearChange}
-                items={generateYearOptions()}
+                items={yearOptions}
               />
             </div>
             <div className={styles.contentWrapper}>

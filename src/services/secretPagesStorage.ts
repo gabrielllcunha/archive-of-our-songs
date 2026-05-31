@@ -1,5 +1,5 @@
 import { supabase } from '@/utils/supabase';
-import { getAccessTokenForFetch } from '@/utils/supabaseSession';
+import { authenticatedFetch, UnauthorizedSessionError } from '@/utils/authenticatedFetch';
 import * as idbSecretPages from '@/services/storage/idbSecretPages';
 
 export type SecretPageRecord = {
@@ -244,11 +244,9 @@ export const secretPagesStorage = {
       throw new Error('Only audio files are allowed');
     }
     const audioBase64 = await fileToBase64(file);
-    const token = await getAccessTokenForFetch();
-    if (!token) throw new Error('Not authenticated');
-    const res = await fetch('/api/secret-pages/upload-audio', {
+    const res = await authenticatedFetch('/api/secret-pages/upload-audio', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         year,
         month,
@@ -274,17 +272,16 @@ export const secretPagesStorage = {
   async removeAudioFile(lastfmUsername: string, year: number, month: string): Promise<boolean> {
     let serverOk = false;
     try {
-      const token = await getAccessTokenForFetch();
-      const res = await fetch('/api/secret-pages/delete-audio', {
+      const res = await authenticatedFetch('/api/secret-pages/delete-audio', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: JSON.stringify({ year, month }),
       });
       serverOk = res.ok;
-    } catch {
+    } catch (error) {
+      if (error instanceof UnauthorizedSessionError) throw error;
       serverOk = false;
     }
 
@@ -309,12 +306,10 @@ export const secretPagesStorage = {
     }
     if (!record.audio_storage_path) return null;
 
-    const token = await getAccessTokenForFetch();
-    const res = await fetch('/api/secret-pages/audio-url', {
+    const res = await authenticatedFetch('/api/secret-pages/audio-url', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
       body: JSON.stringify({ year, month }),
     });

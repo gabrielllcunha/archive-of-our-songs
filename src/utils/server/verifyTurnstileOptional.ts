@@ -1,4 +1,5 @@
 import type { NextApiRequest } from 'next';
+import { isTurnstileRequired } from '@/utils/turnstileEnabled';
 
 type VerifyResponse = {
   success: boolean;
@@ -9,6 +10,9 @@ export async function verifyTurnstileOptional(
   token: string | undefined,
   req: NextApiRequest
 ): Promise<boolean> {
+  if (!isTurnstileRequired()) {
+    return true;
+  }
   const secret = process.env.TURNSTILE_SECRET_KEY;
   if (!secret) {
     return true;

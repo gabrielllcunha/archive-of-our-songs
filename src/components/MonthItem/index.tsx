@@ -46,7 +46,7 @@ export function MonthItem({ month, imageUrl, name, artist, scrobbles, rounded, o
           />
         ) : (
           <div className={styles.placeholderWrapper}>
-            <ImageIcon />
+            <ImageIcon className={styles.placeholderIcon} />
           </div>
         )}
       </div>

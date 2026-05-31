@@ -4,6 +4,7 @@ import styles from "./styles.module.scss";
 import { CheckCircledIcon, LockClosedIcon } from "@radix-ui/react-icons";
 import { supabase } from "@/utils/supabase";
 import { applyBootstrapSession } from "@/utils/supabaseSession";
+import { isTurnstileConfiguredOnClient } from "@/utils/turnstileEnabled";
 
 interface ModalInitialConfigProps {
   authenticatedWithLastfm: boolean;
@@ -46,7 +47,7 @@ export function ModalInitialConfig({
   const [error, setError] = useState<string>("");
   const API_KEY = process?.env?.NEXT_PUBLIC_API_KEY;
   const TURNSTILE_SITE_KEY = process?.env?.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
-  const hasTurnstileConfigured = useMemo(() => Boolean(TURNSTILE_SITE_KEY), [TURNSTILE_SITE_KEY]);
+  const hasTurnstileConfigured = useMemo(() => isTurnstileConfiguredOnClient(), []);
 
   const [validationStep, setValidationStep] = useState<ValidationStep>("idle");
   const [pendingLastfmToken, setPendingLastfmToken] = useState<string | null>(null);
@@ -132,6 +133,9 @@ export function ModalInitialConfig({
         } catch {
 
         }
+        setValidationStep("idle");
+        setPendingLastfmToken(null);
+        pendingLfTokenRef.current = null;
         setAuthenticatedWithLastfm(true);
       } catch (e) {
         console.error(e);
@@ -157,6 +161,12 @@ export function ModalInitialConfig({
   useEffect(() => {
     if (!authenticatedWithLastfm) {
       setSessionResolved(false);
+      setValidationStep("idle");
+      setPendingLastfmToken(null);
+      pendingLfTokenRef.current = null;
+      bootstrapLockRef.current = false;
+      setIsLoading(false);
+      setError("");
     }
   }, [authenticatedWithLastfm]);
 
@@ -344,7 +354,7 @@ export function ModalInitialConfig({
                 ) : (
                   <CheckCircledIcon />
                 )}
-                <span>Are we human? or are we robots? 🤖</span>
+                <span>Are we humans? or are we robots? 🤖</span>
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 {validationStep === "lastfm" || validationStep === "verifying" ? (

@@ -1,4 +1,4 @@
-import { ArchiveIcon, ChevronLeftIcon, ChevronRightIcon, Cross2Icon } from "@radix-ui/react-icons";
+import { ArchiveIcon, ChevronLeftIcon, ChevronRightIcon, Cross2Icon, ImageIcon } from "@radix-ui/react-icons";
 import { HiOutlinePaperClip } from "react-icons/hi";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
@@ -404,7 +404,9 @@ export function ModalExtraContent({
             onError={() => setImageLoading(false)}
           />
         ) : (
-          <div className={styles.imagePlaceholder}>No album cover found for this month.</div>
+          <div className={styles.imagePlaceholder} aria-label="No album cover for this month">
+            <ImageIcon className={styles.placeholderIcon} aria-hidden />
+          </div>
         )}
 
         {imageLoading && backgroundImageUrl && (

@@ -1,4 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
+import { isTurnstileRequired } from '@/utils/turnstileEnabled';
 
 type VerifyResponse = {
   success: boolean;
@@ -15,6 +16,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   const secret = process.env.TURNSTILE_SECRET_KEY;
+  if (!isTurnstileRequired()) {
+    return res.status(200).json({ success: true, skipped: true });
+  }
   if (!secret) {
     return res.status(500).json({ error: 'Missing TURNSTILE_SECRET_KEY' });
   }
