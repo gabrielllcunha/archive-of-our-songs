@@ -138,6 +138,7 @@ export function ModalExtraContent({
   }, [modalYear, selectedMonth, audioReloadNonce]);
 
   useEffect(() => {
+    if (!open) return;
     const username = localStorage.getItem("lastfm_username");
     if (!username) {
       setContent("");
@@ -185,7 +186,7 @@ export function ModalExtraContent({
     return () => {
       cancelled = true;
     };
-  }, [modalYear, selectedMonth, audioReloadNonce]);
+  }, [open, modalYear, selectedMonth, audioReloadNonce]);
 
   useEffect(() => {
     return () => {
