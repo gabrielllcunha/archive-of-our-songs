@@ -1,0 +1,119 @@
+.footerUser {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 9px;
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 0.82rem;
+
+  @media (min-width: 769px) {
+    position: fixed;
+    left: 12px;
+    bottom: 12px;
+    z-index: 10000;
+  }
+
+  @media (max-width: 768px) {
+    min-width: 0;
+    flex: 1;
+    padding: 0;
+  }
+}
+
+.footerUsername {
+  @media (max-width: 768px) {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+.footerMeta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.82rem;
+  color: rgba(255, 255, 255, 0.9);
+  flex-shrink: 0;
+
+  @media (min-width: 769px) {
+    position: fixed;
+    right: 12px;
+    bottom: 12px;
+    z-index: 10000;
+    padding: 8px 10px;
+    border-radius: 9px;
+    margin: 0;
+  }
+
+  @media (max-width: 768px) {
+    display: flex;
+  }
+}
+
+.footerSep {
+  color: rgba(255, 255, 255, 0.45);
+  user-select: none;
+}
+
+.footerVersion {
+  font-variant-numeric: tabular-nums;
+  color: rgba(255, 255, 255, 0.72);
+}
+
+@media (max-width: 768px) {
+  .footer {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 10000;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 12px;
+    padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+    background: rgba(10, 10, 10, 0.75);
+    backdrop-filter: blur(8px);
+    border-radius: 0;
+
+    &:not(:has(.footerUser)) {
+      justify-content: center;
+    }
+  }
+}
+
+.dotsButton {
+  border: none;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.85);
+  cursor: pointer;
+  padding: 3px 5px;
+  border-radius: 7px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dotsButton:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.popoverItem {
+  width: 100%;
+  border: none;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.9);
+  cursor: pointer;
+  padding: 8px 10px;
+  border-radius: 8px;
+  text-align: left;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.popoverItem:hover {
+  background: rgba(255, 255, 255, 0.1);
+}

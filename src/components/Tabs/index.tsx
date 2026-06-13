@@ -43,11 +43,12 @@ export function TabsList({ children, sideIcons }: TabsListProps) {
 interface TabsTriggerProps {
     value: string;
     children: React.ReactNode;
+    ariaLabel?: string;
 }
 
-export function TabsTrigger({ value, children }: TabsTriggerProps) {
+export function TabsTrigger({ value, children, ariaLabel }: TabsTriggerProps) {
     return (
-        <RadixTabs.Trigger value={value} className={styles.tabsTrigger}>
+        <RadixTabs.Trigger value={value} className={styles.tabsTrigger} aria-label={ariaLabel}>
             {children}
         </RadixTabs.Trigger>
     );

@@ -1,3 +1,4 @@
+export * from './AppFooter';
 export * from './Button';
 export * from './Dialog';
 export * from './HomePage';

@@ -7,12 +7,13 @@ interface SelectProps {
     onChange: (value: string) => void;
     items: { value: string; label: string; disabled?: boolean }[];
     label?: string;
+    className?: string;
 }
 
-export function Select({ value, onChange, items, label }: SelectProps) {
+export function Select({ value, onChange, items, label, className }: SelectProps) {
     return (
         <RadixSelect.Root value={value} onValueChange={onChange}>
-            <RadixSelect.Trigger className={styles.trigger} aria-label={label}>
+            <RadixSelect.Trigger className={`${styles.trigger} ${className ?? ""}`} aria-label={label}>
                 <RadixSelect.Value />
                 <RadixSelect.Icon className={styles.icon}>
                     <ChevronDownIcon />

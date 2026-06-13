@@ -9,6 +9,7 @@ interface ButtonProps {
   size?: 'small' | 'medium' | 'large';
   className?: string;
   type?: 'button' | 'submit' | 'reset';
+  ariaLabel?: string;
 }
 
 export function Button({
@@ -18,7 +19,8 @@ export function Button({
   variant = 'primary',
   size = 'medium',
   className,
-  type = 'button'
+  type = 'button',
+  ariaLabel,
 }: ButtonProps) {
   return (
     <button
@@ -31,6 +33,7 @@ export function Button({
       onClick={onClick}
       disabled={disabled}
       type={type}
+      aria-label={ariaLabel}
     >
       {children}
     </button>

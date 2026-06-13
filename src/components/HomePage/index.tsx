@@ -2,7 +2,7 @@ import styles from "./styles.module.scss";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CalendarIcon, DotsVerticalIcon, ListBulletIcon, UpdateIcon } from "@radix-ui/react-icons";
 import { Album, Singer, Song } from "@/models";
-import { Button, MonthItem, Popover, Progress, SegmentedControl, Select, Spinner, Tabs, TabsContent, TabsList, TabsTrigger } from '@/components';
+import { Button, AppFooter, MonthItem, Popover, Progress, SegmentedControl, Select, Spinner, Tabs, TabsContent, TabsList, TabsTrigger } from '@/components';
 import { fetchDataFromEndpoint } from "@/utils/fetchDataFromEndpoint";
 import { authenticatedFetch, onUnauthorizedSession, performUnauthorizedLogout, UnauthorizedSessionError } from "@/utils/authenticatedFetch";
 import { yearlyDataStorage, type MonthlyEntry } from '@/services/yearlyDataStorage';
@@ -40,6 +40,7 @@ export function HomePage() {
   const [extraModalOpen, setExtraModalOpen] = useState(false);
   const [extraModalPendingMonth, setExtraModalPendingMonth] = useState<number | null>(null);
   const [yearSelectRevision, setYearSelectRevision] = useState(0);
+  const [viewTypeMenuOpen, setViewTypeMenuOpen] = useState(false);
 
   const latestSelectableYear = canAccessCurrentYear ? currentYear : defaultLatestSelectableYear;
 
@@ -96,6 +97,7 @@ export function HomePage() {
 
   const handleViewTypeChange = (value: string) => {
     setViewType(value);
+    setViewTypeMenuOpen(false);
   };
 
   const handleRefreshData = () => {
@@ -450,6 +452,7 @@ export function HomePage() {
           <div className={styles.gradient1}></div>
           <div className={styles.gradient2}></div>
         </div>
+        <div className={styles.noiseOverlay} aria-hidden />
         {authenticatedWithLastfm && (
           <div className={styles.mainWrapper}>
             <div className={styles.headerWrapper}>
@@ -458,31 +461,81 @@ export function HomePage() {
                 value={String(year)}
                 onChange={handleYearChange}
                 items={yearOptions}
+                className={styles.yearSelect}
               />
             </div>
             <div className={styles.contentWrapper}>
               <Tabs value={activeTab} onValueChange={handleTabChange}>
                 <TabsList sideIcons>
-                  <TabsTrigger value="albums">Albums</TabsTrigger>
-                  <TabsTrigger value="artists">Artists</TabsTrigger>
-                  <TabsTrigger value="songs">Songs</TabsTrigger>
-                  <Button variant="secondary" size="small" className={styles.refreshButton} onClick={handleRefreshData} disabled={dataLoadState !== 'idle'}>
-                    <UpdateIcon style={{ marginRight: '8px', width: '14px', height: '14px' }} />
-                    Refresh Data
+                  <TabsTrigger value="albums" ariaLabel="Albums">
+                    <span className={styles.tabLabel}>Albums</span>
+                  </TabsTrigger>
+                  <TabsTrigger value="artists" ariaLabel="Artists">
+                    <span className={styles.tabLabel}>Artists</span>
+                  </TabsTrigger>
+                  <TabsTrigger value="songs" ariaLabel="Songs">
+                    <span className={styles.tabLabel}>Songs</span>
+                  </TabsTrigger>
+                  <Button
+                    variant="secondary"
+                    size="small"
+                    className={styles.refreshButton}
+                    onClick={handleRefreshData}
+                    disabled={dataLoadState !== 'idle'}
+                    ariaLabel="Refresh Data"
+                  >
+                    <UpdateIcon className={styles.refreshIcon} aria-hidden />
+                    <span className={styles.refreshLabel}>Refresh Data</span>
                   </Button>
                   <div className={styles.sideIcons}>
-                    <SegmentedControl.Root
-                      defaultValue="month"
-                      size="1"
-                      onValueChange={handleViewTypeChange}
-                    >
-                      <SegmentedControl.Item value="month">
-                        <CalendarIcon />
-                      </SegmentedControl.Item>
-                      <SegmentedControl.Item value="list">
-                        <ListBulletIcon />
-                      </SegmentedControl.Item>
-                    </SegmentedControl.Root>
+                    <div className={styles.viewTypeDesktop}>
+                      <SegmentedControl.Root
+                        value={viewType}
+                        size="1"
+                        onValueChange={handleViewTypeChange}
+                      >
+                        <SegmentedControl.Item value="month">
+                          <CalendarIcon />
+                        </SegmentedControl.Item>
+                        <SegmentedControl.Item value="list">
+                          <ListBulletIcon />
+                        </SegmentedControl.Item>
+                      </SegmentedControl.Root>
+                    </div>
+                    <div className={styles.viewTypeMobile}>
+                      <Popover
+                        side="bottom"
+                        align="end"
+                        open={viewTypeMenuOpen}
+                        onOpenChange={setViewTypeMenuOpen}
+                        trigger={
+                          <button
+                            type="button"
+                            className={styles.viewTypeMenuButton}
+                            aria-label="View options"
+                          >
+                            <DotsVerticalIcon />
+                          </button>
+                        }
+                      >
+                        <button
+                          type="button"
+                          className={`${styles.viewTypeMenuItem}${viewType === "month" ? ` ${styles.viewTypeMenuItemActive}` : ""}`}
+                          onClick={() => handleViewTypeChange("month")}
+                        >
+                          <CalendarIcon className={styles.viewTypeMenuIcon} aria-hidden />
+                          Month
+                        </button>
+                        <button
+                          type="button"
+                          className={`${styles.viewTypeMenuItem}${viewType === "list" ? ` ${styles.viewTypeMenuItemActive}` : ""}`}
+                          onClick={() => handleViewTypeChange("list")}
+                        >
+                          <ListBulletIcon className={styles.viewTypeMenuIcon} aria-hidden />
+                          List
+                        </button>
+                      </Popover>
+                    </div>
                   </div>
                 </TabsList>
                 {renderTabsContent("albums", albums)}
@@ -509,24 +562,10 @@ export function HomePage() {
             <Spinner size="large" />
           </div>
         )}
-        {authenticatedWithLastfm && lastfmUsername && (
-          <div className={styles.loggedAs}>
-            <span>logged as {lastfmUsername}</span>
-            <Popover
-              side="top"
-              align="start"
-              trigger={
-                <button type="button" className={styles.dotsButton} aria-label="User options">
-                  <DotsVerticalIcon />
-                </button>
-              }
-            >
-              <button type="button" className={styles.popoverItem} onClick={handleLogout}>
-                Logout
-              </button>
-            </Popover>
-          </div>
-        )}
+        <AppFooter
+          username={authenticatedWithLastfm ? lastfmUsername : null}
+          onLogout={handleLogout}
+        />
         <ModalInitialConfig
           authenticatedWithLastfm={authenticatedWithLastfm}
           setAuthenticatedWithLastfm={setAuthenticatedWithLastfm}
