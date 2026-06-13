@@ -173,7 +173,7 @@ export function ModalExtraContent({
         startSeconds: startSec,
       });
       setStartTimeDraft(formatSecondsAsMmSs(startSec));
-      const url = await secretPagesStorage.getAudioPlaybackUrl(username, modalYear, selectedMonth, rec);
+      const url = await secretPagesStorage.getAudioPlaybackUrl(modalYear, selectedMonth, rec);
       if (cancelled) {
         if (url?.startsWith("blob:")) URL.revokeObjectURL(url);
         return;
