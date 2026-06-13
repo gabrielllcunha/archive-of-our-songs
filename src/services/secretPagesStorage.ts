@@ -1,6 +1,10 @@
 import { supabase } from '@/utils/supabase';
 import { authenticatedFetch, UnauthorizedSessionError } from '@/utils/authenticatedFetch';
 import * as idbSecretPages from '@/services/storage/idbSecretPages';
+import {
+  decryptSecretPageContent,
+  encryptSecretPageContent,
+} from '@/utils/secretPageCrypto';
 
 export type SecretPageRecord = {
   content: string;
@@ -52,7 +56,6 @@ function mapRow(row: {
 }
 
 async function fetchSupabaseSecretPage(
-  lastfmUsername: string,
   year: number,
   month: string
 ): Promise<SecretPageRecord | null> {
@@ -70,23 +73,29 @@ async function fetchSupabaseSecretPage(
 
   if (error) throw error;
   if (!data) return null;
-  return mapRow(data);
+  const row = mapRow(data);
+  try {
+    row.content = await decryptSecretPageContent(userId, row.content);
+  } catch {
+    row.content = '';
+  }
+  return row;
 }
 
 async function upsertSupabaseSecretPage(
-  lastfmUsername: string,
   year: number,
   month: string,
   record: SecretPageRecord
 ) {
   if (!supabase) throw new Error('Supabase is not configured');
   const userId = await requireSessionUserId();
+  const contentForStorage = await encryptSecretPageContent(userId, record.content);
   const { error } = await supabase.from('secret_pages').upsert(
     {
       user_id: userId,
       year,
       month,
-      content: record.content,
+      content: contentForStorage,
       audio_storage_path: record.audio_storage_path,
       album_cover_url: record.album_cover_url,
       audio_original_filename: record.audio_original_filename,
@@ -127,7 +136,7 @@ export const secretPagesStorage = {
     if (!isBrowserIndexedDbAvailable()) {
       if (!supabase) return emptyRecord();
       try {
-        const row = await fetchSupabaseSecretPage(lastfmUsername, year, month);
+        const row = await fetchSupabaseSecretPage(year, month);
         return row ?? emptyRecord();
       } catch {
         return emptyRecord();
@@ -136,7 +145,7 @@ export const secretPagesStorage = {
 
     if (supabase) {
       try {
-        const row = await fetchSupabaseSecretPage(lastfmUsername, year, month);
+        const row = await fetchSupabaseSecretPage(year, month);
         if (row !== null) {
           return row;
         }
@@ -175,7 +184,7 @@ export const secretPagesStorage = {
 
     if (supabase) {
       try {
-        const row = await fetchSupabaseSecretPage(lastfmUsername, year, month);
+        const row = await fetchSupabaseSecretPage(year, month);
         if (row) base = { ...row };
       } catch {
         const local = await idbSecretPages.getSecretPageRecord(lastfmUsername, year, month);
@@ -215,7 +224,7 @@ export const secretPagesStorage = {
     if (!isBrowserIndexedDbAvailable()) {
       if (!supabase) return;
       try {
-        await upsertSupabaseSecretPage(lastfmUsername, year, month, next);
+        await upsertSupabaseSecretPage(year, month, next);
       } catch {
         
       }
@@ -224,7 +233,7 @@ export const secretPagesStorage = {
 
     if (supabase) {
       try {
-        await upsertSupabaseSecretPage(lastfmUsername, year, month, next);
+        await upsertSupabaseSecretPage(year, month, next);
         return;
       } catch {
         await idbSecretPages.storeSecretPageRecord(lastfmUsername, year, month, toIdbPayload(next));
@@ -296,7 +305,6 @@ export const secretPagesStorage = {
   },
 
   async getAudioPlaybackUrl(
-    lastfmUsername: string,
     year: number,
     month: string,
     record: SecretPageRecord
