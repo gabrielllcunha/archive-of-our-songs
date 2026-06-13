@@ -1,7 +1,3 @@
-<h1 align="center">
-  Archive of Our Songs
-</h1>
-
 <p align="center">
   <img alt="preview" src="public/images/og-image.png" width="100%">
 </p>
