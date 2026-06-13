@@ -400,7 +400,7 @@ export function ModalExtraContent({
       }}
       trigger={
         <div className={styles.secretIcon}>
-          <ArchiveIcon height={24} width={24} />
+          <ArchiveIcon className={styles.archiveIconGlyph} />
         </div>
       }
     >
@@ -414,6 +414,14 @@ export function ModalExtraContent({
         aria-hidden
       />
       <div className={styles.dialogContent}>
+        <button
+          type="button"
+          className={styles.mobileCloseButton}
+          onClick={() => onOpenChange(false)}
+          aria-label="Close"
+        >
+          <Cross2Icon width={18} height={18} />
+        </button>
         {backgroundImageUrl ? (
           <Image
             key={`${modalYear}-${selectedMonth}-${backgroundImageUrl}`}
