@@ -44,8 +44,9 @@ export function ModalExtraContent({
     "January", "February", "March", "April", "May", "June",
     "July", "August", "September", "October", "November", "December",
   ], []);
-  const [selectedMonthIndex, setSelectedMonthIndex] = useState(0);
-  const [modalYear, setModalYear] = useState(year);
+  const [view, setView] = useState({ year, monthIndex: 0 });
+  const modalYear = view.year;
+  const selectedMonthIndex = view.monthIndex;
   const [content, setContent] = useState("");
   const [loadingContent, setLoadingContent] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -70,8 +71,13 @@ export function ModalExtraContent({
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const audioBlobUrlRef = useRef<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const keyboardFocusAnchorRef = useRef<HTMLDivElement | null>(null);
+  const viewRevisionRef = useRef(0);
+  const modalYearRef = useRef(modalYear);
+  modalYearRef.current = modalYear;
 
-  const selectedMonth = months[selectedMonthIndex];
+  const resolvedMonthIndex = open && pendingMonthIndex !== null ? pendingMonthIndex : selectedMonthIndex;
+  const selectedMonth = months[resolvedMonthIndex];
   const selectedAlbum = albumEntries.find((item) => item.month === selectedMonth);
   const backgroundImageUrl = savedAlbumCoverUrl ?? selectedAlbum?.imageUrl ?? null;
 
@@ -86,47 +92,63 @@ export function ModalExtraContent({
   }, []);
 
   useEffect(() => {
-    setAlbumEntries(albums);
-  }, [albums]);
+    const username = localStorage.getItem("lastfm_username");
+    if (!username) return;
+
+    const yearToLoad = modalYear;
+    let cancelled = false;
+
+    void yearlyDataStorage.getYearlyData(username, yearToLoad, "albums")
+      .then((data) => {
+        if (cancelled || yearToLoad !== modalYearRef.current) return;
+        setAlbumEntries(data && data.length > 0 ? (data as Album[]) : []);
+      })
+      .catch(() => {
+        if (!cancelled && yearToLoad === modalYearRef.current) setAlbumEntries([]);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [modalYear]);
 
   useEffect(() => {
-    setModalYear(year);
+    setView((current) => (current.year === year ? current : { ...current, year }));
   }, [year]);
 
   useEffect(() => {
-    setSelectedMonthIndex(0);
+    setView((current) => ({ ...current, monthIndex: 0 }));
   }, [yearSelectRevision]);
 
   useEffect(() => {
     if (!open || pendingMonthIndex === null) return;
-    setSelectedMonthIndex(pendingMonthIndex);
+    setView((current) => ({ ...current, monthIndex: pendingMonthIndex }));
     onPendingMonthConsumed();
   }, [open, pendingMonthIndex, onPendingMonthConsumed]);
 
   useLayoutEffect(() => {
+    setAlbumEntries([]);
+  }, [modalYear]);
+
+  useLayoutEffect(() => {
+    if (!open) return;
+    viewRevisionRef.current += 1;
     setSavedAlbumCoverUrl(null);
     setContent("");
     setLoadingContent(true);
-    setImageLoading(Boolean(selectedAlbum?.imageUrl));
-  }, [modalYear, selectedMonth, selectedAlbum?.imageUrl]);
+    setImageLoading(false);
+    setAudioUi({ hasTrack: false, filename: null, startSeconds: 0 });
+    setStartTimeDraft("0:00");
+    setUploadError(null);
+  }, [open, modalYear, selectedMonth]);
 
   useEffect(() => {
     if (open) {
-      setDialogPlaybackNonce((n) => n + 1);
       return;
     }
     stopAudioPlayback();
+    setAudioSrc(null);
   }, [open, stopAudioPlayback]);
-
-  useEffect(() => {
-    const username = localStorage.getItem("lastfm_username");
-    if (!username) return;
-    yearlyDataStorage.getYearlyData(username, modalYear, "albums")
-      .then((data) => {
-        if (data && data.length > 0) setAlbumEntries(data as Album[]);
-      })
-      .catch(() => { });
-  }, [modalYear]);
 
   useLayoutEffect(() => {
     if (!localStorage.getItem("lastfm_username")) return;
@@ -151,13 +173,15 @@ export function ModalExtraContent({
     }
 
     let cancelled = false;
+    const revision = viewRevisionRef.current;
 
     setLoadingContent(true);
     setUploadError(null);
+    setAudioSrc(null);
 
     (async () => {
       const rec = await secretPagesStorage.getSecretPage(username, modalYear, selectedMonth);
-      if (cancelled) return;
+      if (cancelled || revision !== viewRevisionRef.current) return;
       setContent(rec.content);
       setSavedAlbumCoverUrl(rec.album_cover_url);
       const hasTrack =
@@ -174,13 +198,14 @@ export function ModalExtraContent({
       });
       setStartTimeDraft(formatSecondsAsMmSs(startSec));
       const url = await secretPagesStorage.getAudioPlaybackUrl(modalYear, selectedMonth, rec);
-      if (cancelled) {
+      if (cancelled || revision !== viewRevisionRef.current) {
         if (url?.startsWith("blob:")) URL.revokeObjectURL(url);
         return;
       }
       if (url?.startsWith("blob:")) audioBlobUrlRef.current = url;
       setAudioSrc(url);
       setLoadingContent(false);
+      setDialogPlaybackNonce((n) => n + 1);
     })();
 
     return () => {
@@ -199,8 +224,8 @@ export function ModalExtraContent({
 
   useEffect(() => {
     const el = audioRef.current;
-    if (!open || !el || !audioSrc) {
-      if (el && (!open || !audioSrc)) {
+    if (!open || !el || !audioSrc || loadingContent) {
+      if (el && (!open || !audioSrc || loadingContent)) {
         el.pause();
         if (!open) {
           el.removeAttribute("src");
@@ -241,11 +266,11 @@ export function ModalExtraContent({
       el.removeEventListener("loadedmetadata", beginPlayback);
       el.pause();
     };
-  }, [open, audioSrc, audioUi.startSeconds, dialogPlaybackNonce]);
+  }, [open, audioSrc, audioUi.startSeconds, dialogPlaybackNonce, loadingContent]);
 
   useEffect(() => {
     setImageLoading(Boolean(backgroundImageUrl));
-  }, [backgroundImageUrl]);
+  }, [backgroundImageUrl, modalYear, selectedMonth]);
 
   useEffect(() => {
     if (!editing || !textareaRef.current) return;
@@ -361,40 +386,77 @@ export function ModalExtraContent({
     setRemoveBusy(false);
   };
 
-  const goPrevMonth = () => {
+  const goPrevMonth = useCallback(() => {
     if (selectedMonthIndex > 0) {
-      setSelectedMonthIndex((prev) => prev - 1);
+      setView((current) => ({ ...current, monthIndex: current.monthIndex - 1 }));
     } else if (modalYear > minYear) {
       const y = modalYear - 1;
-      setModalYear(y);
-      setSelectedMonthIndex(months.length - 1);
+      setView({ year: y, monthIndex: months.length - 1 });
       onYearChange(y);
     }
-  };
+  }, [selectedMonthIndex, modalYear, minYear, months.length, onYearChange]);
 
-  const goNextMonth = () => {
+  const goNextMonth = useCallback(() => {
     if (selectedMonthIndex < months.length - 1) {
-      setSelectedMonthIndex((prev) => prev + 1);
+      setView((current) => ({ ...current, monthIndex: current.monthIndex + 1 }));
     } else if (modalYear < maxYear) {
       const y = modalYear + 1;
-      setModalYear(y);
-      setSelectedMonthIndex(0);
+      setView({ year: y, monthIndex: 0 });
       onYearChange(y);
     }
-  };
+  }, [selectedMonthIndex, modalYear, maxYear, months.length, onYearChange]);
 
-  const prevDisabled = selectedMonthIndex === 0 && modalYear <= minYear;
-  const nextDisabled = selectedMonthIndex === months.length - 1 && modalYear >= maxYear;
+  const prevDisabled = resolvedMonthIndex === 0 && modalYear <= minYear;
+  const nextDisabled = resolvedMonthIndex === months.length - 1 && modalYear >= maxYear;
+
+  const focusKeyboardAnchor = useCallback(() => {
+    keyboardFocusAnchorRef.current?.focus({ preventScroll: true });
+  }, []);
+
+  useEffect(() => {
+    if (!open) return;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+
+      const target = event.target;
+      const isTextEntryTarget =
+        target instanceof HTMLTextAreaElement ||
+        (target instanceof HTMLInputElement && target.type !== "file") ||
+        (target instanceof HTMLElement && target.isContentEditable);
+      if (isTextEntryTarget) {
+        return;
+      }
+
+      if (event.key === "ArrowLeft") {
+        if (prevDisabled) return;
+        event.preventDefault();
+        goPrevMonth();
+        focusKeyboardAnchor();
+      } else if (event.key === "ArrowRight") {
+        if (nextDisabled) return;
+        event.preventDefault();
+        goNextMonth();
+        focusKeyboardAnchor();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [open, prevDisabled, nextDisabled, goPrevMonth, goNextMonth, focusKeyboardAnchor]);
 
   return (
     <Dialog
       open={open}
       allowClose={false}
       contentClassName={styles.dialogContainer}
+      onOpenAutoFocus={(event) => {
+        event.preventDefault();
+        focusKeyboardAnchor();
+      }}
       onOpenChange={(nextOpen) => {
         if (nextOpen && pendingMonthIndex === null) {
-          setSelectedMonthIndex(0);
-          setModalYear(year);
+          setView({ year, monthIndex: 0 });
         }
         onOpenChange(nextOpen);
       }}
@@ -404,12 +466,19 @@ export function ModalExtraContent({
         </div>
       }
     >
+      <div
+        ref={keyboardFocusAnchorRef}
+        tabIndex={-1}
+        className={styles.keyboardFocusAnchor}
+        aria-hidden
+      />
       <audio ref={audioRef} className={styles.hiddenAudio} playsInline preload="auto" />
       <input
         ref={fileInputRef}
         type="file"
         accept="audio/*"
         className={styles.hiddenFileInput}
+        tabIndex={-1}
         onChange={handleAudioFileChange}
         aria-hidden
       />
@@ -451,6 +520,7 @@ export function ModalExtraContent({
             <div className={styles.monthHeader}>
               <button
                 type="button"
+                onMouseDown={(event) => event.preventDefault()}
                 onClick={goPrevMonth}
                 className={`${styles.monthArrow} ${styles.monthArrowLeft}`}
                 aria-label="Previous month"
@@ -461,6 +531,7 @@ export function ModalExtraContent({
               <span className={styles.monthTitle}>{selectedMonth}</span>
               <button
                 type="button"
+                onMouseDown={(event) => event.preventDefault()}
                 onClick={goNextMonth}
                 className={`${styles.monthArrow} ${styles.monthArrowRight}`}
                 aria-label="Next month"

@@ -9,6 +9,7 @@ interface DialogProps {
     open?: boolean;
     onOpenChange?: (open: boolean) => void;
     onClose?: () => void;
+    onOpenAutoFocus?: (event: Event) => void;
     initialConfig?: boolean;
     allowClose?: boolean;
     contentClassName?: string;
@@ -20,6 +21,7 @@ export function Dialog({
     open,
     onOpenChange,
     onClose,
+    onOpenAutoFocus,
     initialConfig,
     allowClose = true,
     contentClassName
@@ -44,7 +46,10 @@ export function Dialog({
                         [styles.initialConfigOverlay]: initialConfig,
                     })}
                 />
-                <RadixDialog.Content className={classNames(styles.content, contentClassName)}>
+                <RadixDialog.Content
+                    className={classNames(styles.content, contentClassName)}
+                    onOpenAutoFocus={onOpenAutoFocus}
+                >
                     {allowClose && (
                         <RadixDialog.Close className={styles.closeButton}>
                             <Cross2Icon />
