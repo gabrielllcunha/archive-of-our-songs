@@ -1,10 +1,6 @@
 import Head from "next/head";
 import { HomePage } from "../components/HomePage";
-
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://archive-of-our-songs.vercel.app";
-const OG_IMAGE = `${SITE_URL}/images/og-image.png`;
-const SITE_TITLE = "Archive of Our Songs";
-const SITE_DESCRIPTION = "Showcase your most listened albums, artists, and songs";
+import { OG_IMAGE, SITE_DESCRIPTION, SITE_TITLE, SITE_URL } from "@/constants/site";
 
 export default function Home() {
   return (

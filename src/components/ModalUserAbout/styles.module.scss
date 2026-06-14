@@ -47,6 +47,18 @@
   color: rgba(255, 255, 255, 0.78);
 }
 
+.legalText a.legalLink {
+  color: rgba(255, 255, 255, 0.95);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  transition: color 0.2s ease;
+
+  &:hover {
+    color: #fff;
+    text-decoration: underline;
+  }
+}
+
 .confirmBox {
   display: flex;
   flex-direction: column;

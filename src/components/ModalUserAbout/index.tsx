@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import { Button, Dialog, Spinner } from "@/components";
 import { authenticatedFetch, performUnauthorizedLogout, UnauthorizedSessionError } from "@/utils/authenticatedFetch";
 import { clearUserLocalData } from "@/services/storage/clearUserLocalData";
@@ -141,13 +142,33 @@ export function ModalUserAbout({ username, open, onOpenChange }: ModalUserAboutP
       <section className={styles.section}>
         <h3 className={styles.sectionTitle}>Data &amp; privacy</h3>
         <p className={styles.legalText}>
-          Archive of Our Songs stores your Last.fm listening archive, secret page notes, and any
-          audio you upload so you can revisit your music year by year. We process this data only to
-          provide the service, in line with applicable terms of service and privacy policies.
+          Archive of Our Songs stores your Last.fm listening archive and any audio you upload so
+          you can revisit your music year by year. Text you write in secret pages is{" "}
+          <b>encrypted on your device</b> before it reaches our servers, so we cannot read your
+          private notes.
         </p>
         <p className={styles.legalText}>
-          You stay in control: you can sign out at any time, and you can permanently remove all data
-          linked to your account from our servers using the option below.
+          You stay in control: you can sign out at any time, and permanently remove all data linked
+          to your account from our servers using the option below.
+        </p>
+        <p className={styles.legalText}>
+          See our{" "}
+          <Link
+            href="/legal?tab=privacy"
+            className={styles.legalLink}
+            onClick={() => onOpenChange(false)}
+          >
+            Privacy Policy
+          </Link>{" "}
+          and{" "}
+          <Link
+            href="/legal?tab=terms"
+            className={styles.legalLink}
+            onClick={() => onOpenChange(false)}
+          >
+            Terms of Service
+          </Link>{" "}
+          for more details.
         </p>
       </section>
 
