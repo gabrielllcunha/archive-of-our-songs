@@ -2,6 +2,7 @@ export * from './AppFooter';
 export * from './Button';
 export * from './Dialog';
 export * from './HomePage';
+export * from './InlineMarkdown';
 export * from './MonthItem';
 export * from './Progress';
 export * from './SegmentedControl';

@@ -324,7 +324,6 @@
   padding: 10px;
   font-size: 0.83rem;
   line-height: 1.45;
-  white-space: pre-wrap;
   overflow-y: auto;
   color: rgba(255, 255, 255, 0.85);
   transition: background-color 0.2s ease;
@@ -343,6 +342,26 @@
 
 .diaryTextPlaceholder {
   color: rgba(255, 255, 255, 0.38);
+}
+
+.diaryText strong {
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.98);
+}
+
+.diaryText em {
+  font-style: italic;
+}
+
+.markdownParagraph {
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+.diaryBlockquote {
+  margin: 0.45em 0;
+  white-space: pre-wrap;
+  color: rgba(255, 255, 255, 0.78);
 }
 
 .diaryInput {

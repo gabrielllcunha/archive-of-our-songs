@@ -6,7 +6,7 @@ import { Album } from "@/models";
 import { secretPagesStorage } from "@/services/secretPagesStorage";
 import { yearlyDataStorage } from "@/services/yearlyDataStorage";
 import { formatSecondsAsMmSs, parseTimeToSeconds } from "@/utils/audioStartTime";
-import { Spinner } from "@/components";
+import { InlineMarkdown, Spinner } from "@/components";
 import { Dialog } from "../Dialog";
 import styles from "./styles.module.scss";
 
@@ -545,7 +545,17 @@ export function ModalExtraContent({
                 }
                 onClick={() => setEditing(true)}
               >
-                {loadingContent ? "Loading..." : (content || "What did things in this month sound like?")}
+                {loadingContent
+                  ? "Loading..."
+                  : content
+                    ? (
+                      <InlineMarkdown
+                        text={content}
+                        paragraphClassName={styles.markdownParagraph}
+                        blockquoteClassName={styles.diaryBlockquote}
+                      />
+                    )
+                    : "What did things in this month sound like?"}
               </div>
             )}
           </div>
