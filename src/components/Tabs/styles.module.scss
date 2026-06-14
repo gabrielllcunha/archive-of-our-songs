@@ -56,18 +56,18 @@
   background: transparent;
   font-size: 16px;
   font-weight: 600;
-  color: #666;
+  color: var(--palette-gray-500);
   transition: color 0.3s, background-color 0.3s;
   display: inline-flex;
   align-items: center;
   gap: 8px;
 
   &:hover {
-    color: #333;
+    color: var(--palette-gray-600);
   }
 
   &[data-state="active"] {
-    color: #fff;
+    color: var(--color-text-on-primary);
     background-color: transparent;
     border-radius: 8px;
   }

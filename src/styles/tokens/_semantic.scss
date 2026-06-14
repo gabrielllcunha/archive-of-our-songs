@@ -1,0 +1,113 @@
+// Semantic tokens — use these in components and styles.
+
+:root {
+  /* ── Core brand ───────────────────────────────────────── */
+  --color-background: var(--palette-gray-950);
+  --color-foreground: var(--palette-gray-100);
+  --color-primary: rgba(var(--palette-coral-500-rgb), 0.9);
+  --color-primary-hover: rgba(var(--palette-coral-600-rgb), 0.9);
+  --color-primary-solid: var(--palette-coral-500);
+  --color-secondary: var(--palette-teal-500);
+  --color-secondary-soft: var(--palette-teal-300);
+
+  /* ── Surfaces ─────────────────────────────────────────── */
+  --color-surface: rgba(var(--palette-gray-900-rgb), 0.65);
+  --color-surface-elevated: rgba(var(--palette-gray-900-rgb), 0.75);
+  --color-surface-overlay: rgba(var(--palette-gray-950-rgb), 0.5);
+  --color-surface-muted: rgba(var(--palette-gray-850-rgb), 0.8);
+  --color-surface-hover: rgba(var(--palette-white-rgb), 0.1);
+  --color-surface-active: rgba(var(--palette-white-rgb), 0.12);
+  --color-surface-subtle: rgba(var(--palette-white-rgb), 0.05);
+  --color-surface-input: rgba(var(--palette-gray-950-rgb), 0.72);
+
+  /* ── Overlays ─────────────────────────────────────────── */
+  --color-overlay-backdrop: rgba(var(--palette-black-rgb), 0.7);
+  --color-overlay-solid: var(--palette-black);
+
+  /* ── Text ─────────────────────────────────────────────── */
+  --color-text-primary: rgba(var(--palette-gray-100-rgb), 0.96);
+  --color-text-secondary: rgba(var(--palette-gray-100-rgb), 0.78);
+  --color-text-muted: rgba(var(--palette-gray-100-rgb), 0.62);
+  --color-text-subtle: rgba(var(--palette-white-rgb), 0.45);
+  --color-text-disabled: rgba(var(--palette-gray-500-rgb), 0.75);
+  --color-text-inverse: var(--palette-black);
+  --color-text-on-primary: var(--palette-white);
+
+  /* ── Borders ──────────────────────────────────────────── */
+  --color-border-subtle: rgba(var(--palette-white-rgb), 0.12);
+  --color-border-default: rgba(var(--palette-white-rgb), 0.22);
+  --color-border-strong: rgba(var(--palette-white-rgb), 0.4);
+  --color-border-dashed: rgba(var(--palette-white-rgb), 0.3);
+  --color-border-muted: rgba(var(--palette-gray-300-rgb), 0.5);
+  --color-border-dark: var(--palette-gray-600);
+
+  /* ── Focus & selection ────────────────────────────────── */
+  --color-focus-ring: rgba(var(--palette-white-rgb), 0.3);
+  --color-selection-bg: var(--palette-gray-100);
+  --color-selection-fg: var(--palette-gray-950);
+
+  /* ── Feedback ─────────────────────────────────────────── */
+  --color-success: var(--palette-teal-500);
+  --color-success-soft: var(--palette-teal-300);
+  --color-warning: var(--palette-orange-500);
+  --color-warning-soft: var(--palette-orange-300);
+  --color-error: var(--palette-coral-500);
+  --color-error-soft: var(--palette-coral-400);
+  --color-danger: var(--palette-danger-500);
+  --color-danger-soft: var(--palette-danger-400);
+
+  /* ── Toast surfaces (neon-tinted glass) ─────────────────── */
+  --color-toast-default-bg: rgba(14, 13, 17, 0.76);
+  --color-toast-success-bg: rgba(10, 28, 26, 0.76);
+  --color-toast-warning-bg: rgba(28, 20, 12, 0.76);
+  --color-toast-error-bg: rgba(28, 12, 12, 0.76);
+
+  --color-toast-default-glow: rgba(var(--palette-purple-300-rgb), 0.07);
+  --color-toast-success-glow: rgba(var(--palette-teal-500-rgb), 0.14);
+  --color-toast-warning-glow: rgba(var(--palette-orange-500-rgb), 0.12);
+  --color-toast-error-glow: rgba(var(--palette-coral-500-rgb), 0.14);
+
+  --color-toast-success-border: rgba(var(--palette-teal-300-rgb), 0.22);
+  --color-toast-warning-border: rgba(var(--palette-orange-300-rgb), 0.22);
+  --color-toast-error-border: rgba(var(--palette-coral-400-rgb), 0.22);
+
+  --color-toast-success-title: rgba(196, 245, 236, 0.96);
+  --color-toast-warning-title: rgba(255, 228, 196, 0.96);
+  --color-toast-error-title: rgba(255, 210, 208, 0.96);
+
+  /* ── Tab ambient gradients (HomePage) ─────────────────── */
+  --color-accent-albums-gradient-1-start: rgba(var(--palette-purple-300-rgb), 0.8);
+  --color-accent-albums-gradient-1-mid: rgba(var(--palette-purple-700-rgb), 0.85);
+  --color-accent-albums-gradient-1-end: rgba(var(--palette-purple-700-rgb), 0.32);
+
+  --color-accent-albums-gradient-2-start: rgba(var(--palette-teal-300-rgb), 0.8);
+  --color-accent-albums-gradient-2-mid: rgba(var(--palette-teal-500-rgb), 0.85);
+  --color-accent-albums-gradient-2-end: rgba(var(--palette-teal-500-rgb), 0.3);
+
+  --color-accent-artists-gradient-1-start: rgba(var(--palette-coral-400-rgb), 0.8);
+  --color-accent-artists-gradient-1-mid: rgba(var(--palette-red-500-rgb), 0.85);
+  --color-accent-artists-gradient-1-end: rgba(var(--palette-red-500-rgb), 0.3);
+
+  --color-accent-artists-gradient-2-start: rgba(var(--palette-lime-300-rgb), 0.8);
+  --color-accent-artists-gradient-2-mid: rgba(var(--palette-lime-500-rgb), 0.85);
+  --color-accent-artists-gradient-2-end: rgba(var(--palette-lime-500-rgb), 0.28);
+
+  --color-accent-songs-gradient-1-start: rgba(var(--palette-orange-300-rgb), 0.8);
+  --color-accent-songs-gradient-1-mid: rgba(var(--palette-orange-500-rgb), 0.85);
+  --color-accent-songs-gradient-1-end: rgba(var(--palette-orange-500-rgb), 0.3);
+
+  --color-accent-songs-gradient-2-start: rgba(var(--palette-pink-400-rgb), 0.8);
+  --color-accent-songs-gradient-2-mid: rgba(var(--palette-pink-600-rgb), 0.85);
+  --color-accent-songs-gradient-2-end: rgba(var(--palette-pink-600-rgb), 0.3);
+
+  /* ── Shadows ──────────────────────────────────────────── */
+  --shadow-sm: 0 2px 4px rgba(var(--palette-black-rgb), 0.1);
+  --shadow-md: 0 4px 20px rgba(var(--palette-black-rgb), 0.1);
+  --shadow-lg: 0 8px 28px rgba(var(--palette-black-rgb), 0.42);
+  --shadow-popover: 0 10px 24px rgba(var(--palette-black-rgb), 0.28);
+  --shadow-dropdown: 0 8px 20px rgba(var(--palette-black-rgb), 0.2);
+
+  /* ── Legacy aliases (prefer semantic tokens in new code) */
+  --bg: var(--color-background);
+  --font-color: var(--color-foreground);
+}

@@ -1,0 +1,82 @@
+// Primitive palette — raw brand & neutral values.
+// Prefer semantic tokens (--color-*) in components; use these for composition or one-offs.
+
+:root {
+  /* Neutral */
+  --palette-black-rgb: 0, 0, 0;
+  --palette-white-rgb: 255, 255, 255;
+  --palette-gray-950-rgb: 10, 10, 10;
+  --palette-gray-900-rgb: 7, 7, 7;
+  --palette-gray-850-rgb: 14, 14, 14;
+  --palette-gray-800-rgb: 20, 20, 20;
+  --palette-gray-700-rgb: 30, 30, 30;
+  --palette-gray-600-rgb: 51, 51, 51;
+  --palette-gray-500-rgb: 102, 102, 102;
+  --palette-gray-400-rgb: 170, 170, 170;
+  --palette-gray-300-rgb: 204, 204, 204;
+  --palette-gray-200-rgb: 245, 245, 245;
+  --palette-gray-100-rgb: 240, 240, 240;
+
+  --palette-black: rgb(var(--palette-black-rgb));
+  --palette-white: rgb(var(--palette-white-rgb));
+  --palette-gray-950: rgb(var(--palette-gray-950-rgb));
+  --palette-gray-900: rgb(var(--palette-gray-900-rgb));
+  --palette-gray-850: rgb(var(--palette-gray-850-rgb));
+  --palette-gray-800: rgb(var(--palette-gray-800-rgb));
+  --palette-gray-700: rgb(var(--palette-gray-700-rgb));
+  --palette-gray-600: #333333;
+  --palette-gray-500: #666666;
+  --palette-gray-400: #aaaaaa;
+  --palette-gray-300: #cccccc;
+  --palette-gray-200: #f5f5f5;
+  --palette-gray-100: #f0f0f0;
+
+  /* Primary brand — coral / salmon */
+  --palette-coral-400-rgb: 255, 120, 125;
+  --palette-coral-500-rgb: 239, 103, 99;
+  --palette-coral-600-rgb: 203, 65, 65;
+  --palette-coral-700: #cb4141;
+  --palette-coral-800: #b90000;
+  --palette-coral-900: #890000;
+  --palette-coral-400: rgb(var(--palette-coral-400-rgb));
+  --palette-coral-500: rgb(var(--palette-coral-500-rgb));
+  --palette-coral-600: rgb(var(--palette-coral-600-rgb));
+
+  /* Secondary brand — teal */
+  --palette-teal-300-rgb: 134, 232, 224;
+  --palette-teal-500-rgb: 72, 169, 166;
+  --palette-teal-300: rgb(var(--palette-teal-300-rgb));
+  --palette-teal-500: rgb(var(--palette-teal-500-rgb));
+
+  /* Tab / ambient accents */
+  --palette-purple-300-rgb: 196, 151, 255;
+  --palette-purple-700-rgb: 115, 29, 216;
+  --palette-purple-300: rgb(var(--palette-purple-300-rgb));
+  --palette-purple-700: rgb(var(--palette-purple-700-rgb));
+
+  --palette-red-500-rgb: 233, 20, 27;
+  --palette-red-500: rgb(var(--palette-red-500-rgb));
+
+  --palette-lime-300-rgb: 164, 255, 132;
+  --palette-lime-500-rgb: 75, 242, 24;
+  --palette-lime-300: rgb(var(--palette-lime-300-rgb));
+  --palette-lime-500: rgb(var(--palette-lime-500-rgb));
+
+  --palette-orange-300-rgb: 255, 176, 96;
+  --palette-orange-500-rgb: 255, 120, 10;
+  --palette-orange-300: rgb(var(--palette-orange-300-rgb));
+  --palette-orange-500: rgb(var(--palette-orange-500-rgb));
+
+  --palette-pink-400-rgb: 255, 132, 176;
+  --palette-pink-600-rgb: 238, 33, 111;
+  --palette-pink-400: rgb(var(--palette-pink-400-rgb));
+  --palette-pink-600: rgb(var(--palette-pink-600-rgb));
+
+  /* Destructive / danger (distinct from brand coral) */
+  --palette-danger-300-rgb: 252, 165, 165;
+  --palette-danger-400-rgb: 248, 113, 113;
+  --palette-danger-500-rgb: 220, 38, 38;
+  --palette-danger-300: rgb(var(--palette-danger-300-rgb));
+  --palette-danger-400: rgb(var(--palette-danger-400-rgb));
+  --palette-danger-500: rgb(var(--palette-danger-500-rgb));
+}

@@ -5,7 +5,7 @@
   display: flex;
   position: relative;
   overflow: hidden;
-  background-color: #0A0A0A;
+  background-color: var(--color-background);
   background-image: url('/images/noise.png');
   background-size: cover;
   background-repeat: no-repeat;
@@ -71,18 +71,18 @@
     .gradient1 {
       background: radial-gradient(
         circle at 32% 28%,
-        rgba(196, 151, 255, 0.8) 0%,
-        rgba(115, 29, 216, 0.85) 38%,
-        rgba(115, 29, 216, 0.32) 72%
+        var(--color-accent-albums-gradient-1-start) 0%,
+        var(--color-accent-albums-gradient-1-mid) 38%,
+        var(--color-accent-albums-gradient-1-end) 72%
       );
     }
 
     .gradient2 {
       background: radial-gradient(
         circle at 68% 72%,
-        rgba(134, 232, 224, 0.8) 0%,
-        rgba(72, 169, 166, 0.85) 38%,
-        rgba(72, 169, 166, 0.3) 72%
+        var(--color-accent-albums-gradient-2-start) 0%,
+        var(--color-accent-albums-gradient-2-mid) 38%,
+        var(--color-accent-albums-gradient-2-end) 72%
       );
     }
   }
@@ -91,18 +91,18 @@
     .gradient1 {
       background: radial-gradient(
         circle at 30% 30%,
-        rgba(255, 120, 125, 0.8) 0%,
-        rgba(233, 20, 27, 0.85) 38%,
-        rgba(233, 20, 27, 0.3) 72%
+        var(--color-accent-artists-gradient-1-start) 0%,
+        var(--color-accent-artists-gradient-1-mid) 38%,
+        var(--color-accent-artists-gradient-1-end) 72%
       );
     }
 
     .gradient2 {
       background: radial-gradient(
         circle at 70% 70%,
-        rgba(164, 255, 132, 0.8) 0%,
-        rgba(75, 242, 24, 0.85) 38%,
-        rgba(75, 242, 24, 0.28) 72%
+        var(--color-accent-artists-gradient-2-start) 0%,
+        var(--color-accent-artists-gradient-2-mid) 38%,
+        var(--color-accent-artists-gradient-2-end) 72%
       );
     }
   }
@@ -111,18 +111,18 @@
     .gradient1 {
       background: radial-gradient(
         circle at 34% 26%,
-        rgba(255, 176, 96, 0.8) 0%,
-        rgba(255, 120, 10, 0.85) 38%,
-        rgba(255, 120, 10, 0.3) 72%
+        var(--color-accent-songs-gradient-1-start) 0%,
+        var(--color-accent-songs-gradient-1-mid) 38%,
+        var(--color-accent-songs-gradient-1-end) 72%
       );
     }
 
     .gradient2 {
       background: radial-gradient(
         circle at 66% 74%,
-        rgba(255, 132, 176, 0.8) 0%,
-        rgba(238, 33, 111, 0.85) 38%,
-        rgba(238, 33, 111, 0.3) 72%
+        var(--color-accent-songs-gradient-2-start) 0%,
+        var(--color-accent-songs-gradient-2-mid) 38%,
+        var(--color-accent-songs-gradient-2-end) 72%
       );
     }
   }
@@ -135,7 +135,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(10, 10, 10, 0.5);
+  background: var(--color-surface-overlay);
 }
 
 .mainWrapper {
