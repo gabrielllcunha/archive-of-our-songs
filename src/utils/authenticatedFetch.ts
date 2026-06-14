@@ -1,3 +1,4 @@
+import { showToast } from '@/components/Toast/store';
 import { supabase } from '@/utils/supabase';
 import { getAccessTokenForFetch } from '@/utils/supabaseSession';
 
@@ -42,6 +43,11 @@ export async function performUnauthorizedLogout(): Promise<void> {
 
 export async function handleUnauthorizedResponse(response: Response): Promise<boolean> {
   if (response.status !== 401) return false;
+  showToast({
+    title: 'Session expired',
+    description: 'Please sign in again to continue.',
+    variant: 'error',
+  });
   await performUnauthorizedLogout();
   return true;
 }

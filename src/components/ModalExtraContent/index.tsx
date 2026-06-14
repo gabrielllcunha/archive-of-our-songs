@@ -6,7 +6,7 @@ import { Album } from "@/models";
 import { secretPagesStorage } from "@/services/secretPagesStorage";
 import { yearlyDataStorage } from "@/services/yearlyDataStorage";
 import { formatSecondsAsMmSs, parseTimeToSeconds } from "@/utils/audioStartTime";
-import { InlineMarkdown, Spinner } from "@/components";
+import { InlineMarkdown, Spinner, useToast } from "@/components";
 import { Dialog } from "../Dialog";
 import styles from "./styles.module.scss";
 
@@ -40,6 +40,7 @@ export function ModalExtraContent({
   pendingMonthIndex,
   onPendingMonthConsumed,
 }: ModalExtraContentProps) {
+  const { show: showToast } = useToast();
   const months = useMemo(() => [
     "January", "February", "March", "April", "May", "June",
     "July", "August", "September", "October", "November", "December",
@@ -365,6 +366,11 @@ export function ModalExtraContent({
     try {
       await secretPagesStorage.uploadAudioFile(username, modalYear, selectedMonth, file);
       setAudioReloadNonce((n) => n + 1);
+      showToast({
+        title: 'Soundtrack uploaded',
+        description: truncateFilename(file.name, 48),
+        variant: 'success',
+      });
     } catch (err) {
       setUploadError(err instanceof Error ? err.message : "Upload failed");
       setAudioReloadNonce((n) => n + 1);
@@ -381,7 +387,16 @@ export function ModalExtraContent({
     const serverOk = await secretPagesStorage.removeAudioFile(username, modalYear, selectedMonth);
     setAudioReloadNonce((n) => n + 1);
     if (!serverOk) {
-      setUploadError("Removed on this device; cloud copy may still exist. Try again if needed.");
+      showToast({
+        title: 'Soundtrack removed locally',
+        description: 'The cloud copy may still exist. Try again if needed.',
+        variant: 'warning',
+      });
+    } else {
+      showToast({
+        title: 'Soundtrack removed',
+        variant: 'success',
+      });
     }
     setRemoveBusy(false);
   };

@@ -2,7 +2,7 @@ import styles from "./styles.module.scss";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CalendarIcon, DotsVerticalIcon, ListBulletIcon, UpdateIcon } from "@radix-ui/react-icons";
 import { Album, Singer, Song } from "@/models";
-import { Button, AppFooter, MonthItem, Popover, Progress, SegmentedControl, Select, Spinner, Tabs, TabsContent, TabsList, TabsTrigger } from '@/components';
+import { Button, AppFooter, MonthItem, Popover, Progress, SegmentedControl, Select, Spinner, Tabs, TabsContent, TabsList, TabsTrigger, useToast } from '@/components';
 import { fetchDataFromEndpoint } from "@/utils/fetchDataFromEndpoint";
 import { authenticatedFetch, onUnauthorizedSession, performUnauthorizedLogout, UnauthorizedSessionError } from "@/utils/authenticatedFetch";
 import { yearlyDataStorage, type MonthlyEntry } from '@/services/yearlyDataStorage';
@@ -15,6 +15,7 @@ import { ModalInitialConfig } from "../ModalInitialConfig";
 type DataLoadState = 'idle' | 'checking' | 'downloading';
 
 export function HomePage() {
+  const { show: showToast } = useToast();
   const currentYear = new Date().getFullYear();
   const [activeTab, setActiveTab] = useState<string>("albums");
   const [viewType, setViewType] = useState<string>("month");
@@ -227,6 +228,7 @@ export function HomePage() {
 
       setDataLoadState('downloading');
       setFetchProgressPercent(0);
+      let hadFetchFailure = false;
 
       for (let i = 0; i < orderedPayload.length; i++) {
         if (signal.aborted) break;
@@ -262,6 +264,7 @@ export function HomePage() {
           if (monthError instanceof UnauthorizedSessionError) {
             throw monthError;
           }
+          hadFetchFailure = true;
           console.error(`Error fetching ${monthName} from ${endpoint}:`, monthError);
           await restoreFromStorage();
         }
@@ -273,6 +276,13 @@ export function HomePage() {
 
       if (!signal.aborted) {
         await restoreFromStorage();
+        if (hadFetchFailure) {
+          showToast({
+            title: 'Some months could not be updated',
+            description: 'Showing the latest saved data we have.',
+            variant: 'warning',
+          });
+        }
       }
     } catch (error) {
       if (error instanceof UnauthorizedSessionError) {
@@ -280,13 +290,20 @@ export function HomePage() {
       }
       console.error(`Error fetching from ${endpoint}:`, error);
       await restoreFromStorage();
+      if (!signal.aborted) {
+        showToast({
+          title: 'Could not load listening data',
+          description: 'Showing saved data if available.',
+          variant: 'error',
+        });
+      }
     } finally {
       setFetchProgressPercent(0);
       if (!signal.aborted) {
         setDataLoadState('idle');
       }
     }
-  }, [year, months, currentYear, buildEmptyCurrentYearEntries]);
+  }, [year, months, currentYear, buildEmptyCurrentYearEntries, showToast]);
 
   useEffect(() => {
     if (!authenticatedWithLastfm) return;
