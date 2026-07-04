@@ -6,7 +6,7 @@ import { Album } from "@/models";
 import { secretPagesStorage } from "@/services/secretPagesStorage";
 import { yearlyDataStorage } from "@/services/yearlyDataStorage";
 import { formatSecondsAsMmSs, parseTimeToSeconds } from "@/utils/audioStartTime";
-import { InlineMarkdown, Spinner, useToast } from "@/components";
+import { InlineMarkdown, Skeleton, Spinner, useToast } from "@/components";
 import { Dialog } from "../Dialog";
 import styles from "./styles.module.scss";
 
@@ -614,7 +614,9 @@ export function ModalExtraContent({
                 </span>
               )}
             </div>
-            {editing ? (
+            {loadingContent ? (
+              <Skeleton className={styles.diarySkeleton} />
+            ) : editing ? (
               <textarea
                 ref={textareaRef}
                 className={styles.diaryInput}
@@ -626,22 +628,19 @@ export function ModalExtraContent({
             ) : (
               <div
                 className={
-                  `${styles.diaryText}${!loadingContent && !content ? ` ${styles.diaryTextPlaceholder}` : ""
-                  }`
+                  `${styles.diaryText}${!content ? ` ${styles.diaryTextPlaceholder}` : ""}`
                 }
                 onClick={() => setEditing(true)}
               >
-                {loadingContent
-                  ? "Loading..."
-                  : content
-                    ? (
-                      <InlineMarkdown
-                        text={content}
-                        paragraphClassName={styles.markdownParagraph}
-                        blockquoteClassName={styles.diaryBlockquote}
-                      />
-                    )
-                    : "What did things in this month sound like?"}
+                {content
+                  ? (
+                    <InlineMarkdown
+                      text={content}
+                      paragraphClassName={styles.markdownParagraph}
+                      blockquoteClassName={styles.diaryBlockquote}
+                    />
+                  )
+                  : "What did things in this month sound like?"}
               </div>
             )}
           </div>

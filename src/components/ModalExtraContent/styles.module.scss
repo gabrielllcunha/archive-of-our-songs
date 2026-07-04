@@ -395,6 +395,18 @@
   }
 }
 
+.diarySkeleton {
+  flex: 1;
+  min-height: 0;
+  border: 1px solid transparent;
+  border-radius: 10px;
+
+  @media (max-width: 768px) {
+    min-height: 120px;
+    max-height: 28dvh;
+  }
+}
+
 .albumImageLoading {
   opacity: 0;
 }

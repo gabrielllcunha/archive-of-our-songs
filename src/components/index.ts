@@ -9,5 +9,6 @@ export * from './SegmentedControl';
 export * from './Select';
 export * from './Tabs';
 export * from './Popover';
+export * from './Skeleton';
 export * from './Spinner';
 export * from './Toast';
