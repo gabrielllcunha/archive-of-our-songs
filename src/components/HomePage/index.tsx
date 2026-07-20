@@ -33,25 +33,26 @@ export function HomePage() {
   ], []);
   const abortControllerRef = useRef<AbortController | null>(null);
   const isRefreshingRef = useRef(false);
-  const earliestSelectableYear = 2021;
   const defaultLatestSelectableYear = currentYear - 1;
 
   const [sessionStarted, setSessionStarted] = useState(false);
   const [canAccessCurrentYear, setCanAccessCurrentYear] = useState(false);
+  const [earliestSelectableYear, setEarliestSelectableYear] = useState(defaultLatestSelectableYear);
   const [extraModalOpen, setExtraModalOpen] = useState(false);
   const [extraModalPendingMonth, setExtraModalPendingMonth] = useState<number | null>(null);
   const [yearSelectRevision, setYearSelectRevision] = useState(0);
   const [viewTypeMenuOpen, setViewTypeMenuOpen] = useState(false);
 
   const latestSelectableYear = canAccessCurrentYear ? currentYear : defaultLatestSelectableYear;
+  const effectiveEarliestYear = Math.min(earliestSelectableYear, latestSelectableYear);
 
   const yearOptions = useMemo(() => {
     const years = [];
-    for (let i = earliestSelectableYear; i <= latestSelectableYear; i++) {
+    for (let i = effectiveEarliestYear; i <= latestSelectableYear; i++) {
       years.push({ value: String(i), label: String(i) });
     }
     return years;
-  }, [earliestSelectableYear, latestSelectableYear]);
+  }, [effectiveEarliestYear, latestSelectableYear]);
 
   const handleTabChange = (value: string) => {
     if (year !== currentYear) {
@@ -361,6 +362,7 @@ export function HomePage() {
     if (!authenticatedWithLastfm) {
       setLastfmUsername(null);
       setCanAccessCurrentYear(false);
+      setEarliestSelectableYear(defaultLatestSelectableYear);
       return;
     }
     setLastfmUsername(localStorage.getItem("lastfm_username"));
@@ -370,9 +372,18 @@ export function HomePage() {
       try {
         const res = await authenticatedFetch("/api/user/year-access");
         if (!res.ok) return;
-        const data = (await res.json()) as { canAccessCurrentYear?: boolean };
+        const data = (await res.json()) as {
+          canAccessCurrentYear?: boolean;
+          earliestSelectableYear?: number;
+        };
         if (!cancelled) {
           setCanAccessCurrentYear(Boolean(data.canAccessCurrentYear));
+          if (
+            typeof data.earliestSelectableYear === "number" &&
+            Number.isFinite(data.earliestSelectableYear)
+          ) {
+            setEarliestSelectableYear(data.earliestSelectableYear);
+          }
         }
       } catch (error) {
         if (error instanceof UnauthorizedSessionError) return;
@@ -385,12 +396,17 @@ export function HomePage() {
     return () => {
       cancelled = true;
     };
-  }, [authenticatedWithLastfm]);
+  }, [authenticatedWithLastfm, defaultLatestSelectableYear]);
 
   useEffect(() => {
     if (canAccessCurrentYear || year !== currentYear) return;
     setYear(defaultLatestSelectableYear);
   }, [canAccessCurrentYear, currentYear, defaultLatestSelectableYear, year]);
+
+  useEffect(() => {
+    if (year >= effectiveEarliestYear) return;
+    setYear(effectiveEarliestYear);
+  }, [effectiveEarliestYear, year]);
 
   const handleLogout = async () => {
     await performUnauthorizedLogout();
@@ -567,7 +583,7 @@ export function HomePage() {
               onOpenChange={handleExtraModalOpenChange}
               yearSelectRevision={yearSelectRevision}
               onYearChange={handleModalYearChange}
-              minYear={earliestSelectableYear}
+              minYear={effectiveEarliestYear}
               maxYear={latestSelectableYear}
               pendingMonthIndex={extraModalPendingMonth}
               onPendingMonthConsumed={handlePendingMonthConsumed}

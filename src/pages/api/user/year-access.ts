@@ -1,6 +1,9 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { requireSupabaseAnonClientFromBearer } from '@/utils/server/requireSupabaseAnonFromBearer';
 import { isLastfmUsernameAllowedCurrentYear } from '@/utils/server/lastfmWhitelist';
+import { fetchLastfmRegisteredYear } from '@/utils/server/lastfmSession';
+
+const CUSTOM_EARLIEST_YEAR = 2021;
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'GET') {
@@ -20,5 +23,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     typeof lastfmUsername === 'string' &&
     isLastfmUsernameAllowedCurrentYear(lastfmUsername);
 
-  return res.status(200).json({ canAccessCurrentYear });
+  const fallbackEarliest = new Date().getFullYear() - 1;
+  let earliestSelectableYear = fallbackEarliest;
+
+  if (canAccessCurrentYear) {
+    earliestSelectableYear = CUSTOM_EARLIEST_YEAR;
+  } else if (typeof lastfmUsername === 'string') {
+    const joinedYear = await fetchLastfmRegisteredYear(lastfmUsername);
+    if (joinedYear !== null) {
+      earliestSelectableYear = joinedYear;
+    }
+  }
+
+  return res.status(200).json({ canAccessCurrentYear, earliestSelectableYear });
 }

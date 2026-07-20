@@ -322,6 +322,7 @@ export function ModalInitialConfig({
       allowClose={false}
       trigger={null}
       initialConfig
+      onOpenAutoFocus={(event) => event.preventDefault()}
     >
       <div className={styles.dialogContent}>
         {validationStep === "idle" && (

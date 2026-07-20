@@ -43,3 +43,40 @@ export async function fetchLastfmUsernameFromToken(token: string): Promise<strin
 
   return data.session.name;
 }
+
+export async function fetchLastfmRegisteredYear(username: string): Promise<number | null> {
+  const apiKey = process.env.NEXT_PUBLIC_API_KEY;
+  if (!apiKey || !username.trim()) {
+    return null;
+  }
+
+  const query = new URLSearchParams({
+    method: 'user.getInfo',
+    user: username.trim(),
+    api_key: apiKey,
+    format: 'json',
+  });
+
+  try {
+    const response = await fetch(`https://ws.audioscrobbler.com/2.0/?${query.toString()}`);
+    const data = (await response.json().catch(() => null)) as {
+      user?: { registered?: { unixtime?: string | number } };
+      error?: number;
+      message?: string;
+    } | null;
+
+    if (!response.ok || data?.error || !data?.user?.registered?.unixtime) {
+      return null;
+    }
+
+    const unixtime = Number(data.user.registered.unixtime);
+    if (!Number.isFinite(unixtime) || unixtime <= 0) {
+      return null;
+    }
+
+    const year = new Date(unixtime * 1000).getUTCFullYear();
+    return Number.isFinite(year) ? year : null;
+  } catch {
+    return null;
+  }
+}

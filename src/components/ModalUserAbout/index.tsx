@@ -190,9 +190,8 @@ export function ModalUserAbout({ username, open, onOpenChange }: ModalUserAboutP
               Cancel
             </Button>
             <Button
-              variant="secondary"
+              variant="danger"
               size="small"
-              className={`${styles.actionButton} ${styles.deleteButton}`}
               onClick={handleDeleteData}
               disabled={deleteBusy}
             >
@@ -203,9 +202,8 @@ export function ModalUserAbout({ username, open, onOpenChange }: ModalUserAboutP
       ) : (
         <div className={styles.actions}>
           <Button
-            variant="secondary"
+            variant="danger"
             size="small"
-            className={`${styles.actionButton} ${styles.deleteButton}`}
             onClick={() => setConfirmDelete(true)}
             disabled={profileLoading || deleteBusy}
           >
