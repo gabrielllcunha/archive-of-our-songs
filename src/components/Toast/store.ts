@@ -1,10 +1,16 @@
 export type ToastVariant = 'default' | 'success' | 'warning' | 'error';
 
+export type ToastAction = {
+  label: string;
+  onClick: () => void;
+};
+
 export type ToastInput = {
   title: string;
   description?: string;
   variant?: ToastVariant;
   duration?: number;
+  action?: ToastAction;
 };
 
 type ToastListener = (toast: ToastInput) => void;

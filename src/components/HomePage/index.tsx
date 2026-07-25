@@ -33,6 +33,7 @@ export function HomePage() {
   ], []);
   const abortControllerRef = useRef<AbortController | null>(null);
   const isRefreshingRef = useRef(false);
+  const requestForceFullYearRefreshRef = useRef<() => void>(() => { });
   const defaultLatestSelectableYear = currentYear - 1;
 
   const [sessionStarted, setSessionStarted] = useState(false);
@@ -102,35 +103,6 @@ export function HomePage() {
     setViewTypeMenuOpen(false);
   };
 
-  const handleRefreshData = () => {
-    if (isRefreshingRef.current) return;
-    isRefreshingRef.current = true;
-    abortControllerRef.current?.abort();
-    abortControllerRef.current = new AbortController();
-    const { signal } = abortControllerRef.current;
-    const onFinally = () => { isRefreshingRef.current = false; };
-    let fetchPromise;
-    switch (activeTab) {
-      case "albums":
-        fetchPromise = fetchData("fetch-albums-by-month", setAlbums, signal, true);
-        break;
-      case "artists":
-        fetchPromise = fetchData("fetch-artists-by-month", setArtists, signal, true);
-        break;
-      case "songs":
-        fetchPromise = fetchData("fetch-songs-by-month", setSongs, signal, true);
-        break;
-      default:
-        fetchPromise = Promise.resolve();
-        break;
-    }
-    if (fetchPromise && typeof fetchPromise.finally === 'function') {
-      fetchPromise.finally(onFinally);
-    } else {
-      onFinally();
-    }
-  };
-
   const buildEmptyCurrentYearEntries = useCallback((): MonthlyEntry[] => {
     const currentMonthNameIndex = new Date().getMonth();
     return months.slice(0, currentMonthNameIndex + 1).map((month) => ({
@@ -142,11 +114,15 @@ export function HomePage() {
     }));
   }, [months]);
 
-  const fetchData = useCallback(async (endpoint: string, setter: React.Dispatch<React.SetStateAction<any[]>>, signal: AbortSignal, forceRefresh = false) => {
-    const dataType: YearlyDataType =
-      endpoint === "fetch-albums-by-month" ? "albums" :
-        endpoint === "fetch-artists-by-month" ? "artists" : "songs";
-
+  const fetchData = useCallback(async (
+    endpoint: string,
+    setter: React.Dispatch<React.SetStateAction<any[]>>,
+    signal: AbortSignal,
+    forceRefresh = false,
+    forceFullYear = false,
+  ) => {
+    const dataType: YearlyDataType = endpoint === "fetch-albums-by-month" ? "albums" : endpoint === "fetch-artists-by-month" ? "artists" : "songs";
+    const shouldBypassCache = forceRefresh || forceFullYear;
     const restoreFromStorage = async () => {
       const username = localStorage.getItem('lastfm_username');
       if (!username) return;
@@ -161,7 +137,7 @@ export function HomePage() {
       if (!username) {
         return;
       }
-      if (!forceRefresh) {
+      if (!shouldBypassCache) {
         const storedData = await yearlyDataStorage.getYearlyData(
           username,
           year,
@@ -185,26 +161,41 @@ export function HomePage() {
         year,
         dataType
       );
-      const monthsPayload = getMonthsNeedingFetch(
-        storedData,
-        months,
-        dataType,
-        year,
-        currentYear
-      );
-
-      if (storedData && monthsPayload.length === 0) {
-        setter(storedData);
-        return;
-      }
-
-      const orderedPayload = monthsPayload;
 
       let monthsToDisplay = months;
       if (year === currentYear) {
         const currentMonthNameIndex = new Date().getMonth();
         monthsToDisplay = months.slice(0, currentMonthNameIndex + 1);
       }
+
+      const monthsPayload = forceFullYear
+        ? [...monthsToDisplay]
+        : getMonthsNeedingFetch(
+          storedData,
+          months,
+          dataType,
+          year,
+          currentYear
+        );
+
+      if (storedData && monthsPayload.length === 0) {
+        setter(storedData);
+        if (forceRefresh && !forceFullYear) {
+          showToast({
+            title: 'Nothing was updated',
+            description: 'Your data for this year already looks complete.',
+            variant: 'warning',
+            duration: 12000,
+            action: {
+              label: 'Force Refresh',
+              onClick: () => requestForceFullYearRefreshRef.current(),
+            },
+          });
+        }
+        return;
+      }
+
+      const orderedPayload = monthsPayload;
 
       const mapServerYearToDisplay = (yearRows: Album[] | Singer[] | Song[]) =>
         monthsToDisplay.map((monthName) => {
@@ -238,7 +229,7 @@ export function HomePage() {
           target_account: username,
           year,
           months: [monthName],
-          ...(forceRefresh && { forceRefresh: true }),
+          ...(shouldBypassCache && { forceRefresh: true }),
         };
         try {
           const yearRows = (await fetchDataFromEndpoint(
@@ -305,6 +296,38 @@ export function HomePage() {
       }
     }
   }, [year, months, currentYear, buildEmptyCurrentYearEntries, showToast]);
+
+  const handleRefreshData = useCallback((forceFullYear = false) => {
+    if (isRefreshingRef.current) return;
+    isRefreshingRef.current = true;
+    abortControllerRef.current?.abort();
+    abortControllerRef.current = new AbortController();
+    const { signal } = abortControllerRef.current;
+    const onFinally = () => { isRefreshingRef.current = false; };
+    let fetchPromise: Promise<void> | undefined;
+    switch (activeTab) {
+      case "albums":
+        fetchPromise = fetchData("fetch-albums-by-month", setAlbums, signal, true, forceFullYear);
+        break;
+      case "artists":
+        fetchPromise = fetchData("fetch-artists-by-month", setArtists, signal, true, forceFullYear);
+        break;
+      case "songs":
+        fetchPromise = fetchData("fetch-songs-by-month", setSongs, signal, true, forceFullYear);
+        break;
+      default:
+        break;
+    }
+    if (fetchPromise && typeof fetchPromise.finally === 'function') {
+      fetchPromise.finally(onFinally);
+    } else {
+      onFinally();
+    }
+  }, [activeTab, fetchData]);
+
+  requestForceFullYearRefreshRef.current = () => {
+    handleRefreshData(true);
+  };
 
   useEffect(() => {
     if (!authenticatedWithLastfm) return;
@@ -513,7 +536,7 @@ export function HomePage() {
                     variant="secondary"
                     size="small"
                     className={styles.refreshButton}
-                    onClick={handleRefreshData}
+                    onClick={() => handleRefreshData(false)}
                     disabled={dataLoadState !== 'idle'}
                     ariaLabel="Refresh Data"
                   >

@@ -225,8 +225,9 @@ export function ModalExtraContent({
 
   useEffect(() => {
     const el = audioRef.current;
-    if (!open || !el || !audioSrc || loadingContent) {
-      if (el && (!open || !audioSrc || loadingContent)) {
+    const loadingVisuals = loadingContent || imageLoading;
+    if (!open || !el || !audioSrc || loadingVisuals) {
+      if (el && (!open || !audioSrc || loadingVisuals)) {
         el.pause();
         if (!open) {
           el.removeAttribute("src");
@@ -267,9 +268,9 @@ export function ModalExtraContent({
       el.removeEventListener("loadedmetadata", beginPlayback);
       el.pause();
     };
-  }, [open, audioSrc, audioUi.startSeconds, dialogPlaybackNonce, loadingContent]);
+  }, [open, audioSrc, audioUi.startSeconds, dialogPlaybackNonce, loadingContent, imageLoading]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     setImageLoading(Boolean(backgroundImageUrl));
   }, [backgroundImageUrl, modalYear, selectedMonth]);
 
@@ -361,16 +362,22 @@ export function ModalExtraContent({
     event.target.value = "";
     const username = localStorage.getItem("lastfm_username");
     if (!file || !username) return;
+
+    const maxBytes = 3.3 * 1024 * 1024;
+    if (file.size > maxBytes) {
+      showToast({
+        title: "File too large",
+        description: "Soundtracks must be 3.3MB or smaller.",
+        variant: "error",
+      });
+      return;
+    }
+
     setUploadBusy(true);
     setUploadError(null);
     try {
       await secretPagesStorage.uploadAudioFile(username, modalYear, selectedMonth, file);
       setAudioReloadNonce((n) => n + 1);
-      showToast({
-        title: 'Soundtrack uploaded',
-        description: truncateFilename(file.name, 48),
-        variant: 'success',
-      });
     } catch (err) {
       setUploadError(err instanceof Error ? err.message : "Upload failed");
       setAudioReloadNonce((n) => n + 1);

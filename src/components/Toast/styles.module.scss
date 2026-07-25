@@ -18,7 +18,8 @@
   display: grid;
   grid-template-areas:
     "title close"
-    "description description";
+    "description description"
+    "action action";
   grid-template-columns: 1fr auto;
   gap: 4px 12px;
   align-items: start;
@@ -112,6 +113,32 @@
   font-size: 0.875rem;
   line-height: 1.4;
   color: var(--color-text-muted);
+}
+
+.action {
+  grid-area: action;
+  justify-self: start;
+  margin-top: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--color-text-primary);
+  font-size: 0.8rem;
+  font-weight: 600;
+  line-height: 1.2;
+  padding: 6px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.14);
+    border-color: rgba(255, 255, 255, 0.28);
+  }
+}
+
+.warning .action {
+  border-color: var(--color-toast-warning-border);
+  color: var(--color-toast-warning-title);
 }
 
 .close {
