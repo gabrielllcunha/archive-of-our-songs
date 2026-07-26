@@ -483,7 +483,7 @@ export function ModalExtraContent({
         onOpenChange(nextOpen);
       }}
       trigger={
-        <div className={styles.secretIcon}>
+        <div className={`${styles.secretIcon}${!open ? ` ${styles.secretIconMobileFixed}` : ` ${styles.secretIconMobileHidden}`}`}>
           <ArchiveIcon className={styles.archiveIconGlyph} />
         </div>
       }

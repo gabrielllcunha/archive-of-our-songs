@@ -26,10 +26,21 @@
   right: 1rem;
   z-index: 99999;
   transition: all 0.3s ease;
+}
 
+.secretIconMobileFixed {
   @media (max-width: 768px) {
-    top: 0.35rem;
-    right: 0.35rem;
+    position: fixed;
+    top: auto;
+    right: calc(1.25rem + env(safe-area-inset-right, 0px));
+    bottom: calc(4.5rem + env(safe-area-inset-bottom, 0px));
+  }
+}
+
+.secretIconMobileHidden {
+  @media (max-width: 768px) {
+    visibility: hidden;
+    pointer-events: none;
   }
 }
 
@@ -38,8 +49,8 @@
   height: 24px;
 
   @media (max-width: 768px) {
-    width: 18px;
-    height: 18px;
+    width: 22px;
+    height: 22px;
   }
 }
 
