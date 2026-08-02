@@ -316,6 +316,15 @@ export function ModalInitialConfig({
     };
   }, [TURNSTILE_SITE_KEY, hasTurnstileConfigured, pendingLastfmToken, validationStep, runBootstrap]);
 
+  useEffect(() => {
+    if (validationStep === "idle") return;
+    const active = document.activeElement;
+    if (!(active instanceof HTMLElement)) return;
+    if (active.getAttribute("role") === "dialog") {
+      active.blur();
+    }
+  }, [validationStep]);
+
   return (
     <Dialog
       open={sessionResolved && !authenticatedWithLastfm}
