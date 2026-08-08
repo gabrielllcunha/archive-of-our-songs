@@ -1,17 +1,24 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { randomBytes } from 'crypto';
-import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import { createClient } from '@supabase/supabase-js';
 import { getSupabaseAdmin } from '@/utils/supabaseAdmin';
 import { fetchLastfmUsernameFromToken } from '@/utils/server/lastfmSession';
 import { isLastfmUsernameOnWhitelist } from '@/utils/server/lastfmWhitelist';
 import { verifyTurnstileOptional } from '@/utils/server/verifyTurnstileOptional';
 import { authEmailForLastfmUsername } from '@/utils/server/authEmailForLastfm';
+import { createSessionViaMagicLink } from '@/utils/server/createSessionViaMagicLink';
+import {
+  assertSecretPagesKeySecretConfigured,
+  deriveSecretPagesKeyMaterial,
+  randomAuthPassword,
+} from '@/utils/server/secretPagesKeyMaterial';
 
 async function syncPublicUserProfile(
-  admin: SupabaseClient,
+  admin: ReturnType<typeof getSupabaseAdmin>,
   authUserId: string,
   lastfmUsername: string
 ): Promise<string | undefined> {
+  if (!admin) return 'Missing admin client';
+
   const { data: profileByName } = await admin
     .from('users')
     .select('id')
@@ -65,11 +72,11 @@ async function syncPublicUserProfile(
 }
 
 async function resolveOrCreateAuthUserId(
-  admin: SupabaseClient,
+  admin: NonNullable<ReturnType<typeof getSupabaseAdmin>>,
   email: string,
-  password: string,
   lastfmUsername: string
 ): Promise<{ userId?: string; error?: string }> {
+  const password = randomAuthPassword();
   const { data: created, error: createErr } = await admin.auth.admin.createUser({
     email,
     password,
@@ -84,11 +91,10 @@ async function resolveOrCreateAuthUserId(
       if (listErr) return { error: listErr.message };
       const found = list.users.find((u) => u.email?.toLowerCase() === email.toLowerCase());
       if (!found?.id) return { error: 'Auth user exists but could not be resolved' };
-      const { error: pwdErr } = await admin.auth.admin.updateUserById(found.id, {
-        password,
+      const { error: metaErr } = await admin.auth.admin.updateUserById(found.id, {
         user_metadata: { lastfm_username: lastfmUsername },
       });
-      if (pwdErr) return { error: pwdErr.message };
+      if (metaErr) return { error: metaErr.message };
       return { userId: found.id };
     }
     return { error: createErr.message };
@@ -143,7 +149,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   const email = authEmailForLastfmUsername(lastfmUsername);
-  const password = randomBytes(32).toString('hex');
 
   const { data: existingRow, error: rowErr } = await admin
     .from('users')
@@ -163,22 +168,21 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     );
     if (!authLookupErr && authLookup.user?.id) {
       userId = authLookup.user.id;
-      const { error: pwdErr } = await admin.auth.admin.updateUserById(userId, {
-        password,
+      const { error: metaErr } = await admin.auth.admin.updateUserById(userId, {
         user_metadata: { lastfm_username: lastfmUsername },
       });
-      if (pwdErr) {
-        return res.status(502).json({ error: pwdErr.message });
+      if (metaErr) {
+        return res.status(502).json({ error: metaErr.message });
       }
     } else {
-      const resolved = await resolveOrCreateAuthUserId(admin, email, password, lastfmUsername);
+      const resolved = await resolveOrCreateAuthUserId(admin, email, lastfmUsername);
       if (resolved.error || !resolved.userId) {
         return res.status(502).json({ error: resolved.error ?? 'Auth resolution failed' });
       }
       userId = resolved.userId;
     }
   } else {
-    const resolved = await resolveOrCreateAuthUserId(admin, email, password, lastfmUsername);
+    const resolved = await resolveOrCreateAuthUserId(admin, email, lastfmUsername);
     if (resolved.error || !resolved.userId) {
       return res.status(502).json({ error: resolved.error ?? 'Auth resolution failed' });
     }
@@ -197,20 +201,23 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   const signClient = createClient(url, anonKey);
-  const { data: signData, error: signErr } = await signClient.auth.signInWithPassword({
-    email,
-    password,
-  });
+  const session = await createSessionViaMagicLink(admin, signClient, email);
+  if (session.error || !session.access_token || !session.refresh_token) {
+    return res.status(502).json({ error: session.error ?? 'Sign-in failed' });
+  }
 
-  if (signErr || !signData.session) {
-    return res.status(502).json({ error: signErr?.message ?? 'Sign-in failed' });
+  if (!assertSecretPagesKeySecretConfigured()) {
+    console.warn(
+      '[bootstrap-supabase] SECRET_PAGES_KEY_SECRET is not set — secret notes will not sync across devices.'
+    );
   }
 
   return res.status(200).json({
-    access_token: signData.session.access_token,
-    refresh_token: signData.session.refresh_token,
-    expires_in: signData.session.expires_in,
-    token_type: signData.session.token_type,
+    access_token: session.access_token,
+    refresh_token: session.refresh_token,
+    expires_in: session.expires_in,
+    token_type: session.token_type,
     lastfm_username: lastfmUsername,
+    secret_pages_key_material: deriveSecretPagesKeyMaterial(userId),
   });
 }

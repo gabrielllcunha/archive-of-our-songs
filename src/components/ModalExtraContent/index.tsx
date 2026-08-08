@@ -74,6 +74,7 @@ export function ModalExtraContent({
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const keyboardFocusAnchorRef = useRef<HTMLDivElement | null>(null);
   const viewRevisionRef = useRef(0);
+  const decryptFailedRef = useRef(false);
   const modalYearRef = useRef(modalYear);
   modalYearRef.current = modalYear;
 
@@ -134,6 +135,15 @@ export function ModalExtraContent({
   useLayoutEffect(() => {
     if (!open) return;
     viewRevisionRef.current += 1;
+    if (debounceRef.current) {
+      window.clearTimeout(debounceRef.current);
+      debounceRef.current = null;
+    }
+    if (startTimeDebounceRef.current) {
+      window.clearTimeout(startTimeDebounceRef.current);
+      startTimeDebounceRef.current = null;
+    }
+    decryptFailedRef.current = false;
     setSavedAlbumCoverUrl(null);
     setContent("");
     setLoadingContent(true);
@@ -183,8 +193,17 @@ export function ModalExtraContent({
     (async () => {
       const rec = await secretPagesStorage.getSecretPage(username, modalYear, selectedMonth);
       if (cancelled || revision !== viewRevisionRef.current) return;
+      decryptFailedRef.current = Boolean(rec.decryptFailed);
       setContent(rec.content);
       setSavedAlbumCoverUrl(rec.album_cover_url);
+      if (rec.decryptFailed) {
+        showToast({
+          title: 'Could not decrypt this note',
+          description: 'Your cloud copy was left unchanged. Try the device where you last wrote it, or write a new note to replace it.',
+          variant: 'warning',
+          duration: 12000,
+        });
+      }
       const hasTrack =
         Boolean(rec.audio_storage_path) ||
         Boolean(rec.audio_blob && rec.audio_blob.byteLength > 0);
@@ -212,7 +231,7 @@ export function ModalExtraContent({
     return () => {
       cancelled = true;
     };
-  }, [open, modalYear, selectedMonth, audioReloadNonce]);
+  }, [open, modalYear, selectedMonth, audioReloadNonce, showToast]);
 
   useEffect(() => {
     return () => {
@@ -284,11 +303,17 @@ export function ModalExtraContent({
   const saveContent = async (value: string) => {
     const username = localStorage.getItem("lastfm_username");
     if (!username) return;
+    if (decryptFailedRef.current && !value.trim()) {
+      return;
+    }
     const cover = selectedAlbum?.imageUrl ?? null;
     await secretPagesStorage.storeSecretPage(username, modalYear, selectedMonth, {
       content: value,
       album_cover_url: cover,
     });
+    if (decryptFailedRef.current && value.trim()) {
+      decryptFailedRef.current = false;
+    }
     setSavedAlbumCoverUrl(cover);
   };
 

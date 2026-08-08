@@ -3,7 +3,7 @@ import { GITHUB_REPOSITORY_URL } from './constants';
 
 export const privacyPolicy: LegalDocument = {
   title: 'Privacy Policy',
-  effectiveDate: 'June 13, 2026',
+  effectiveDate: 'August 8, 2026',
   sections: [
     {
       title: 'Introduction',
@@ -34,8 +34,9 @@ export const privacyPolicy: LegalDocument = {
     {
       title: 'Encryption of secret page text',
       paragraphs: [
-        'Text you write in secret pages is encrypted on your device using AES-GCM before it reaches our servers. We store only ciphertext and cannot read your private notes.',
-        'Your encryption key is kept in your browser\'s local storage. If you clear browser data or use a different device, previously encrypted notes may not be recoverable unless you still have access to the original device and session.',
+        'Text you write in secret pages is encrypted on your device using AES-GCM before it reaches our servers. We store ciphertext in the database and do not read your private notes in the admin dashboard.',
+        'After you sign in, your browser receives key material derived for your account so the same notes can be decrypted on any of your signed-in devices. If encryption is misconfigured or an older device-only key is required, the app will show an empty note and will not overwrite the cloud copy with blank text.',
+        'If you clear all browser data for this site, or if notes were written only with an older device-local key that is no longer available, some historical notes may not be recoverable.',
       ],
     },
     {

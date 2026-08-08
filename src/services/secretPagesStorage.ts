@@ -2,7 +2,7 @@ import { supabase } from '@/utils/supabase';
 import { authenticatedFetch, UnauthorizedSessionError } from '@/utils/authenticatedFetch';
 import * as idbSecretPages from '@/services/storage/idbSecretPages';
 import {
-  decryptSecretPageContent,
+  decryptSecretPageContentDetailed,
   encryptSecretPageContent,
 } from '@/utils/secretPageCrypto';
 
@@ -13,6 +13,14 @@ export type SecretPageRecord = {
   audio_original_filename: string | null;
   audio_start_seconds: number;
   audio_blob?: ArrayBuffer | null;
+  decryptFailed?: boolean;
+};
+
+type CloudFetchResult = {
+  record: SecretPageRecord | null;
+  rawEncryptedContent: string | null;
+  decryptFailed: boolean;
+  needsReencryptWithSyncKey: boolean;
 };
 
 const emptyRecord = (): SecretPageRecord => ({
@@ -22,6 +30,7 @@ const emptyRecord = (): SecretPageRecord => ({
   audio_original_filename: null,
   audio_start_seconds: 0,
   audio_blob: null,
+  decryptFailed: false,
 });
 
 async function requireSessionUserId(): Promise<string> {
@@ -52,14 +61,22 @@ function mapRow(row: {
     audio_original_filename: row.audio_original_filename ?? null,
     audio_start_seconds: typeof start === 'number' && Number.isFinite(start) ? start : 0,
     audio_blob: null,
+    decryptFailed: false,
   };
 }
 
 async function fetchSupabaseSecretPage(
   year: number,
   month: string
-): Promise<SecretPageRecord | null> {
-  if (!supabase) return null;
+): Promise<CloudFetchResult> {
+  if (!supabase) {
+    return {
+      record: null,
+      rawEncryptedContent: null,
+      decryptFailed: false,
+      needsReencryptWithSyncKey: false,
+    };
+  }
   const userId = await requireSessionUserId();
   const { data, error } = await supabase
     .from('secret_pages')
@@ -72,24 +89,52 @@ async function fetchSupabaseSecretPage(
     .maybeSingle();
 
   if (error) throw error;
-  if (!data) return null;
-  const row = mapRow(data);
-  try {
-    row.content = await decryptSecretPageContent(userId, row.content);
-  } catch {
-    row.content = '';
+  if (!data) {
+    return {
+      record: null,
+      rawEncryptedContent: null,
+      decryptFailed: false,
+      needsReencryptWithSyncKey: false,
+    };
   }
-  return row;
+
+  const row = mapRow(data);
+  const rawContent = data.content ?? '';
+  const decrypted = await decryptSecretPageContentDetailed(userId, rawContent);
+
+  if (decrypted.decryptFailed) {
+    return {
+      record: { ...row, content: '', decryptFailed: true },
+      rawEncryptedContent: rawContent || null,
+      decryptFailed: true,
+      needsReencryptWithSyncKey: false,
+    };
+  }
+
+  return {
+    record: { ...row, content: decrypted.plaintext, decryptFailed: false },
+    rawEncryptedContent: rawContent || null,
+    decryptFailed: false,
+    needsReencryptWithSyncKey: decrypted.needsReencryptWithSyncKey,
+  };
 }
 
 async function upsertSupabaseSecretPage(
   year: number,
   month: string,
-  record: SecretPageRecord
+  record: SecretPageRecord,
+  options?: { preserveEncryptedContent?: string | null }
 ) {
   if (!supabase) throw new Error('Supabase is not configured');
   const userId = await requireSessionUserId();
-  const contentForStorage = await encryptSecretPageContent(userId, record.content);
+
+  let contentForStorage: string;
+  if (options?.preserveEncryptedContent) {
+    contentForStorage = options.preserveEncryptedContent;
+  } else {
+    contentForStorage = await encryptSecretPageContent(userId, record.content);
+  }
+
   const { error } = await supabase.from('secret_pages').upsert(
     {
       user_id: userId,
@@ -136,8 +181,11 @@ export const secretPagesStorage = {
     if (!isBrowserIndexedDbAvailable()) {
       if (!supabase) return emptyRecord();
       try {
-        const row = await fetchSupabaseSecretPage(year, month);
-        return row ?? emptyRecord();
+        const fetched = await fetchSupabaseSecretPage(year, month);
+        if (fetched.record && fetched.needsReencryptWithSyncKey && !fetched.decryptFailed) {
+          void upsertSupabaseSecretPage(year, month, fetched.record).catch(() => undefined);
+        }
+        return fetched.record ?? emptyRecord();
       } catch {
         return emptyRecord();
       }
@@ -145,9 +193,17 @@ export const secretPagesStorage = {
 
     if (supabase) {
       try {
-        const row = await fetchSupabaseSecretPage(year, month);
-        if (row !== null) {
-          return row;
+        const fetched = await fetchSupabaseSecretPage(year, month);
+        if (fetched.record !== null) {
+          if (fetched.needsReencryptWithSyncKey && !fetched.decryptFailed) {
+            void upsertSupabaseSecretPage(year, month, fetched.record).catch(() => undefined);
+          }
+          if (!fetched.decryptFailed && isBrowserIndexedDbAvailable()) {
+            void idbSecretPages
+              .storeSecretPageRecord(lastfmUsername, year, month, toIdbPayload(fetched.record))
+              .catch(() => undefined);
+          }
+          return fetched.record;
         }
         return emptyRecord();
       } catch {
@@ -159,6 +215,7 @@ export const secretPagesStorage = {
           audio_original_filename: local.audio_original_filename,
           audio_start_seconds: local.audio_start_seconds,
           audio_blob: local.audio_blob ?? null,
+          decryptFailed: false,
         };
       }
     }
@@ -171,6 +228,7 @@ export const secretPagesStorage = {
       audio_original_filename: local.audio_original_filename,
       audio_start_seconds: local.audio_start_seconds,
       audio_blob: local.audio_blob ?? null,
+      decryptFailed: false,
     };
   },
 
@@ -181,11 +239,23 @@ export const secretPagesStorage = {
     patch: Partial<SecretPageRecord>
   ): Promise<void> {
     let base = emptyRecord();
+    let preserveEncryptedContent: string | null = null;
+    let decryptFailed = false;
 
     if (supabase) {
       try {
-        const row = await fetchSupabaseSecretPage(year, month);
-        if (row) base = { ...row };
+        const fetched = await fetchSupabaseSecretPage(year, month);
+        if (fetched.record) {
+          base = { ...fetched.record };
+          decryptFailed = fetched.decryptFailed;
+          if (
+            fetched.decryptFailed &&
+            fetched.rawEncryptedContent &&
+            (patch.content === undefined || patch.content === '')
+          ) {
+            preserveEncryptedContent = fetched.rawEncryptedContent;
+          }
+        }
       } catch {
         const local = await idbSecretPages.getSecretPageRecord(lastfmUsername, year, month);
         base = {
@@ -195,6 +265,7 @@ export const secretPagesStorage = {
           audio_original_filename: local.audio_original_filename,
           audio_start_seconds: local.audio_start_seconds,
           audio_blob: local.audio_blob ?? null,
+          decryptFailed: false,
         };
       }
     } else if (isBrowserIndexedDbAvailable()) {
@@ -206,7 +277,16 @@ export const secretPagesStorage = {
         audio_original_filename: local.audio_original_filename,
         audio_start_seconds: local.audio_start_seconds,
         audio_blob: local.audio_blob ?? null,
+        decryptFailed: false,
       };
+    }
+
+    if (decryptFailed && patch.content !== undefined && patch.content === '') {
+      const { content: _ignored, decryptFailed: _df, ...safePatch } = patch;
+      patch = safePatch;
+      if (Object.keys(patch).length === 0 && preserveEncryptedContent) {
+        return;
+      }
     }
 
     const next: SecretPageRecord = {
@@ -219,21 +299,33 @@ export const secretPagesStorage = {
         patch.audio_original_filename !== undefined
           ? patch.audio_original_filename
           : base.audio_original_filename,
+      decryptFailed: false,
     };
+
+    if (decryptFailed && patch.content !== undefined && patch.content.length > 0) {
+      preserveEncryptedContent = null;
+    }
 
     if (!isBrowserIndexedDbAvailable()) {
       if (!supabase) return;
       try {
-        await upsertSupabaseSecretPage(year, month, next);
+        await upsertSupabaseSecretPage(year, month, next, { preserveEncryptedContent });
       } catch {
-        
       }
       return;
     }
 
     if (supabase) {
       try {
-        await upsertSupabaseSecretPage(year, month, next);
+        await upsertSupabaseSecretPage(year, month, next, { preserveEncryptedContent });
+        if (!preserveEncryptedContent) {
+          await idbSecretPages.storeSecretPageRecord(
+            lastfmUsername,
+            year,
+            month,
+            toIdbPayload(next)
+          );
+        }
         return;
       } catch {
         await idbSecretPages.storeSecretPageRecord(lastfmUsername, year, month, toIdbPayload(next));

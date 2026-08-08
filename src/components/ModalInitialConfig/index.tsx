@@ -4,6 +4,8 @@ import styles from "./styles.module.scss";
 import { CheckCircledIcon, LockClosedIcon } from "@radix-ui/react-icons";
 import { supabase } from "@/utils/supabase";
 import { applyBootstrapSession } from "@/utils/supabaseSession";
+import { applySecretPagesKeyMaterial } from "@/utils/secretPageCrypto";
+import { ensureSecretPagesKeyMaterial } from "@/utils/ensureSecretPagesKeyMaterial";
 import { isTurnstileConfiguredOnClient } from "@/utils/turnstileEnabled";
 
 interface ModalInitialConfigProps {
@@ -76,6 +78,7 @@ export function ModalInitialConfig({
           access_token?: string;
           refresh_token?: string;
           lastfm_username?: string;
+          secret_pages_key_material?: string | null;
         };
 
         if (res.status === 403 && data?.error === "WHITELIST_DENIED") {
@@ -110,6 +113,15 @@ export function ModalInitialConfig({
             access_token: data.access_token,
             refresh_token: data.refresh_token,
           });
+          if (data.secret_pages_key_material && supabase) {
+            const { data: { session } } = await supabase.auth.getSession();
+            const uid = session?.user?.id;
+            if (uid) {
+              applySecretPagesKeyMaterial(uid, data.secret_pages_key_material);
+            }
+          } else {
+            await ensureSecretPagesKeyMaterial();
+          }
         } catch (sessionErr) {
           console.error(sessionErr);
           setError(
@@ -191,6 +203,8 @@ export function ModalInitialConfig({
             if (name) {
               localStorage.setItem("lastfm_username", name);
             }
+            await ensureSecretPagesKeyMaterial();
+            if (cancelled) return;
             setAuthenticatedWithLastfm(true);
             return;
           }
