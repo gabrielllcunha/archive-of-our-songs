@@ -1,7 +1,7 @@
 import styles from "./styles.module.scss";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CalendarIcon, DotsVerticalIcon, ListBulletIcon, UpdateIcon } from "@radix-ui/react-icons";
-import { Album, Singer, Song } from "@/models";
+import { Album, Singer, Track } from "@/models";
 import { Button, AppFooter, MonthItem, Popover, Progress, SegmentedControl, Select, Spinner, Tabs, TabsContent, TabsList, TabsTrigger, useToast } from '@/components';
 import { fetchDataFromEndpoint } from "@/utils/fetchDataFromEndpoint";
 import { authenticatedFetch, onUnauthorizedSession, performUnauthorizedLogout, UnauthorizedSessionError } from "@/utils/authenticatedFetch";
@@ -22,7 +22,7 @@ export function HomePage() {
   const [year, setYear] = useState<number>(currentYear - 1);
   const [albums, setAlbums] = useState<Album[]>([]);
   const [artists, setArtists] = useState<Singer[]>([]);
-  const [songs, setSongs] = useState<Song[]>([]);
+  const [tracks, setTracks] = useState<Track[]>([]);
   const [dataLoadState, setDataLoadState] = useState<DataLoadState>('idle');
   const [fetchProgressPercent, setFetchProgressPercent] = useState(0);
   const [authenticatedWithLastfm, setAuthenticatedWithLastfm] = useState<boolean>(false);
@@ -197,10 +197,10 @@ export function HomePage() {
 
       const orderedPayload = monthsPayload;
 
-      const mapServerYearToDisplay = (yearRows: Album[] | Singer[] | Song[]) =>
+      const mapServerYearToDisplay = (yearRows: Album[] | Singer[] | Track[]) =>
         monthsToDisplay.map((monthName) => {
           return (
-            yearRows.find((item: Album | Singer | Song) => item.month === monthName) ||
+            yearRows.find((item: Album | Singer | Track) => item.month === monthName) ||
             storedData?.find((item) => item.month === monthName) ||
             { month: monthName, name: '', artist: '', imageUrl: '', scrobbles: 0 }
           );
@@ -236,7 +236,7 @@ export function HomePage() {
             endpoint,
             payload,
             signal
-          )) as Album[] | Singer[] | Song[];
+          )) as Album[] | Singer[] | Track[];
           const displayData = mapServerYearToDisplay(yearRows);
           setter(displayData);
           const forStorage: MonthlyEntry[] = displayData.map((item) => ({
@@ -312,8 +312,8 @@ export function HomePage() {
       case "artists":
         fetchPromise = fetchData("fetch-artists-by-month", setArtists, signal, true, forceFullYear);
         break;
-      case "songs":
-        fetchPromise = fetchData("fetch-songs-by-month", setSongs, signal, true, forceFullYear);
+      case "tracks":
+        fetchPromise = fetchData("fetch-songs-by-month", setTracks, signal, true, forceFullYear);
         break;
       default:
         break;
@@ -342,8 +342,8 @@ export function HomePage() {
         case "artists":
           await fetchData("fetch-artists-by-month", setArtists, signal);
           break;
-        case "songs":
-          await fetchData("fetch-songs-by-month", setSongs, signal);
+        case "tracks":
+          await fetchData("fetch-songs-by-month", setTracks, signal);
           break;
         default:
           break;
@@ -359,7 +359,7 @@ export function HomePage() {
     setAuthenticatedWithLastfm(false);
     setAlbums([]);
     setArtists([]);
-    setSongs([]);
+    setTracks([]);
   }, []);
 
   useEffect(() => {
@@ -502,7 +502,7 @@ export function HomePage() {
             ? styles.albumsColors
             : activeTab === "artists"
               ? styles.artistsColors
-              : styles.songsColors
+              : styles.tracksColors
             }`}
         >
           <div className={styles.gradient1}></div>
@@ -529,8 +529,8 @@ export function HomePage() {
                   <TabsTrigger value="artists" ariaLabel="Artists">
                     <span className={styles.tabLabel}>Artists</span>
                   </TabsTrigger>
-                  <TabsTrigger value="songs" ariaLabel="Songs">
-                    <span className={styles.tabLabel}>Songs</span>
+                  <TabsTrigger value="tracks" ariaLabel="Tracks">
+                    <span className={styles.tabLabel}>Tracks</span>
                   </TabsTrigger>
                   <Button
                     variant="secondary"
@@ -596,7 +596,7 @@ export function HomePage() {
                 </TabsList>
                 {renderTabsContent("albums", albums)}
                 {renderTabsContent("artists", artists)}
-                {renderTabsContent("songs", songs)}
+                {renderTabsContent("tracks", tracks)}
               </Tabs>
             </div>
             <ModalExtraContent

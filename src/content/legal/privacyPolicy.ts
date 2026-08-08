@@ -17,7 +17,7 @@ export const privacyPolicy: LegalDocument = {
       paragraphs: ['We collect and store the following categories of data when you use the Service:'],
       list: [
         'Your Last.fm username and account connection details used to sign you in.',
-        'Your listening archive data (top albums, artists, and songs by month), including titles, artist names, scrobble counts, and image URLs sourced from Last.fm.',
+        'Your listening archive data (top albums, artists, and tracks by month), including titles, artist names, scrobble counts, and image URLs sourced from Last.fm.',
         'Secret page notes you write in the app. This text is encrypted on your device before it is sent to our servers.',
         'Audio files you choose to upload to secret pages, along with related metadata such as filenames and album cover URLs.',
         'Technical data needed to operate the Service, such as session tokens and optional bot-protection signals when signing in.',

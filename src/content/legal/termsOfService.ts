@@ -15,7 +15,7 @@ export const termsOfService: LegalDocument = {
     {
       title: 'The Service',
       paragraphs: [
-        'Archive of Our Songs lets you explore and save a personal archive of your most listened albums, artists, and songs from Last.fm, including optional secret pages where you can add private notes and audio.',
+        'Archive of Our Songs lets you explore and save a personal archive of your most listened albums, artists, and tracks from Last.fm, including optional secret pages where you can add private notes and audio.',
       ],
     },
     {

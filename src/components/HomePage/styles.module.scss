@@ -107,22 +107,22 @@
     }
   }
 
-  &.songsColors {
+  &.tracksColors {
     .gradient1 {
       background: radial-gradient(
         circle at 34% 26%,
-        var(--color-accent-songs-gradient-1-start) 0%,
-        var(--color-accent-songs-gradient-1-mid) 38%,
-        var(--color-accent-songs-gradient-1-end) 72%
+        var(--color-accent-tracks-gradient-1-start) 0%,
+        var(--color-accent-tracks-gradient-1-mid) 38%,
+        var(--color-accent-tracks-gradient-1-end) 72%
       );
     }
 
     .gradient2 {
       background: radial-gradient(
         circle at 66% 74%,
-        var(--color-accent-songs-gradient-2-start) 0%,
-        var(--color-accent-songs-gradient-2-mid) 38%,
-        var(--color-accent-songs-gradient-2-end) 72%
+        var(--color-accent-tracks-gradient-2-start) 0%,
+        var(--color-accent-tracks-gradient-2-mid) 38%,
+        var(--color-accent-tracks-gradient-2-end) 72%
       );
     }
   }
