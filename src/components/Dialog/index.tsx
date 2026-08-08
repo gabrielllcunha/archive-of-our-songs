@@ -26,14 +26,13 @@ export function Dialog({
     allowClose = true,
     contentClassName
 }: DialogProps) {
-    const handleOpenChange = (open: boolean) => {
-        if (allowClose || open) {
-            onOpenChange?.(open);
-            if (!open) {
-                onClose?.();
-            }
-        } else if (!open) {
-            onOpenChange?.(open);
+    const handleOpenChange = (nextOpen: boolean) => {
+        if (!allowClose && !nextOpen) {
+            return;
+        }
+        onOpenChange?.(nextOpen);
+        if (!nextOpen) {
+            onClose?.();
         }
     };
 
@@ -49,6 +48,26 @@ export function Dialog({
                 <RadixDialog.Content
                     className={classNames(styles.content, contentClassName)}
                     onOpenAutoFocus={onOpenAutoFocus}
+                    onPointerDownOutside={(event) => {
+                        if (!allowClose) {
+                            event.preventDefault();
+                        }
+                    }}
+                    onInteractOutside={(event) => {
+                        if (!allowClose) {
+                            event.preventDefault();
+                        }
+                    }}
+                    onFocusOutside={(event) => {
+                        if (!allowClose) {
+                            event.preventDefault();
+                        }
+                    }}
+                    onEscapeKeyDown={(event) => {
+                        if (!allowClose) {
+                            event.preventDefault();
+                        }
+                    }}
                 >
                     {allowClose && (
                         <RadixDialog.Close className={styles.closeButton}>
