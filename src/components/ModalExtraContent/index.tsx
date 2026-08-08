@@ -8,6 +8,7 @@ import { yearlyDataStorage } from "@/services/yearlyDataStorage";
 import { formatSecondsAsMmSs, parseTimeToSeconds } from "@/utils/audioStartTime";
 import { InlineMarkdown, Skeleton, Spinner, useToast } from "@/components";
 import { Dialog } from "../Dialog";
+import { shouldIgnoreDialogDismiss } from "../Toast/dismissGuard";
 import styles from "./styles.module.scss";
 
 interface ModalExtraContentProps {
@@ -495,7 +496,7 @@ export function ModalExtraContent({
   return (
     <Dialog
       open={open}
-      allowClose={false}
+      showCloseButton={false}
       contentClassName={styles.dialogContainer}
       onOpenAutoFocus={(event) => {
         event.preventDefault();
@@ -533,7 +534,14 @@ export function ModalExtraContent({
         <button
           type="button"
           className={styles.mobileCloseButton}
-          onClick={() => onOpenChange(false)}
+          onClick={(event) => {
+            if (shouldIgnoreDialogDismiss()) {
+              event.preventDefault();
+              event.stopPropagation();
+              return;
+            }
+            onOpenChange(false);
+          }}
           aria-label="Close"
         >
           <Cross2Icon width={18} height={18} />

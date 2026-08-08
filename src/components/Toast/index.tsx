@@ -4,6 +4,7 @@ import classNames from 'classnames';
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import styles from './styles.module.scss';
+import { markToastInteraction } from './dismissGuard';
 import {
   showToast,
   subscribeToToasts,
@@ -114,7 +115,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const toastLayer = (
-    <>
+    <div className={styles.layer} data-toast-layer onPointerDownCapture={markToastInteraction}>
       {toasts.map((toast) => (
         <RadixToast.Root
           key={toast.id}
@@ -123,6 +124,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
           duration={Infinity}
           onOpenChange={(open) => {
             if (!open) {
+              markToastInteraction();
               dismiss(toast.id);
             }
           }}
@@ -137,7 +139,9 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
             <button
               type="button"
               className={styles.action}
+              onPointerDown={markToastInteraction}
               onClick={() => {
+                markToastInteraction();
                 const run = toast.action?.onClick;
                 dismiss(toast.id);
                 run?.();
@@ -146,13 +150,18 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
               {toast.action.label}
             </button>
           ) : null}
-          <RadixToast.Close className={styles.close} aria-label="Dismiss">
+          <RadixToast.Close
+            className={styles.close}
+            aria-label="Dismiss"
+            onPointerDown={markToastInteraction}
+            onClick={markToastInteraction}
+          >
             <Cross2Icon />
           </RadixToast.Close>
         </RadixToast.Root>
       ))}
       <RadixToast.Viewport className={styles.viewport} />
-    </>
+    </div>
   );
 
   return (
