@@ -2,6 +2,7 @@ import * as RadixToast from '@radix-ui/react-toast';
 import { Cross2Icon } from '@radix-ui/react-icons';
 import classNames from 'classnames';
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import styles from './styles.module.scss';
 import {
   showToast,
@@ -42,6 +43,7 @@ export function useToast() {
 
 export function ToastProvider({ children }: { children: React.ReactNode }) {
   const [toasts, setToasts] = useState<ToastItem[]>([]);
+  const [mounted, setMounted] = useState(false);
   const dismissTimersRef = useRef<Map<string, number>>(new Map());
   const removeTimersRef = useRef<Map<string, number>>(new Map());
 
@@ -97,6 +99,10 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => subscribeToToasts(addToast), [addToast]);
 
   useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
     const dismissTimers = dismissTimersRef.current;
     const removeTimers = removeTimersRef.current;
     return () => {
@@ -107,47 +113,53 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
+  const toastLayer = (
+    <>
+      {toasts.map((toast) => (
+        <RadixToast.Root
+          key={toast.id}
+          className={classNames(styles.root, styles[toast.variant ?? 'default'])}
+          open={toast.open}
+          duration={Infinity}
+          onOpenChange={(open) => {
+            if (!open) {
+              dismiss(toast.id);
+            }
+          }}
+        >
+          <RadixToast.Title className={styles.title}>{toast.title}</RadixToast.Title>
+          {toast.description ? (
+            <RadixToast.Description className={styles.description}>
+              {toast.description}
+            </RadixToast.Description>
+          ) : null}
+          {toast.action ? (
+            <button
+              type="button"
+              className={styles.action}
+              onClick={() => {
+                const run = toast.action?.onClick;
+                dismiss(toast.id);
+                run?.();
+              }}
+            >
+              {toast.action.label}
+            </button>
+          ) : null}
+          <RadixToast.Close className={styles.close} aria-label="Dismiss">
+            <Cross2Icon />
+          </RadixToast.Close>
+        </RadixToast.Root>
+      ))}
+      <RadixToast.Viewport className={styles.viewport} />
+    </>
+  );
+
   return (
     <ToastContext.Provider value={addToast}>
       <RadixToast.Provider swipeDirection="right" duration={Infinity}>
         {children}
-        {toasts.map((toast) => (
-          <RadixToast.Root
-            key={toast.id}
-            className={classNames(styles.root, styles[toast.variant ?? 'default'])}
-            open={toast.open}
-            duration={Infinity}
-            onOpenChange={(open) => {
-              if (!open) {
-                dismiss(toast.id);
-              }
-            }}
-          >
-            <RadixToast.Title className={styles.title}>{toast.title}</RadixToast.Title>
-            {toast.description ? (
-              <RadixToast.Description className={styles.description}>
-                {toast.description}
-              </RadixToast.Description>
-            ) : null}
-            {toast.action ? (
-              <button
-                type="button"
-                className={styles.action}
-                onClick={() => {
-                  const run = toast.action?.onClick;
-                  dismiss(toast.id);
-                  run?.();
-                }}
-              >
-                {toast.action.label}
-              </button>
-            ) : null}
-            <RadixToast.Close className={styles.close} aria-label="Dismiss">
-              <Cross2Icon />
-            </RadixToast.Close>
-          </RadixToast.Root>
-        ))}
-        <RadixToast.Viewport className={styles.viewport} />
+        {mounted ? createPortal(toastLayer, document.body) : null}
       </RadixToast.Provider>
     </ToastContext.Provider>
   );
