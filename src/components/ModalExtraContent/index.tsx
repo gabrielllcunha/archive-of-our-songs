@@ -94,6 +94,29 @@ export function ModalExtraContent({
     el.load();
   }, []);
 
+  const goPrevMonth = useCallback(() => {
+    if (selectedMonthIndex > 0) {
+      setView((current) => ({ ...current, monthIndex: current.monthIndex - 1 }));
+    } else if (modalYear > minYear) {
+      const y = modalYear - 1;
+      setView({ year: y, monthIndex: months.length - 1 });
+      onYearChange(y);
+    }
+  }, [selectedMonthIndex, modalYear, minYear, months.length, onYearChange]);
+
+  const goNextMonth = useCallback(() => {
+    if (selectedMonthIndex < months.length - 1) {
+      setView((current) => ({ ...current, monthIndex: current.monthIndex + 1 }));
+    } else if (modalYear < maxYear) {
+      const y = modalYear + 1;
+      setView({ year: y, monthIndex: 0 });
+      onYearChange(y);
+    }
+  }, [selectedMonthIndex, modalYear, maxYear, months.length, onYearChange]);
+
+  const prevDisabled = resolvedMonthIndex === 0 && modalYear <= minYear;
+  const nextDisabled = resolvedMonthIndex === months.length - 1 && modalYear >= maxYear;
+
   useEffect(() => {
     const username = localStorage.getItem("lastfm_username");
     if (!username) return;
@@ -199,8 +222,8 @@ export function ModalExtraContent({
       setSavedAlbumCoverUrl(rec.album_cover_url);
       if (rec.decryptFailed) {
         showToast({
-          title: 'Could not decrypt this note',
-          description: 'Your cloud copy was left unchanged. Try the device where you last wrote it, or write a new note to replace it.',
+          title: 'Could not load this note',
+          description: 'Try the device where you last wrote it, or write a new note to replace it.',
           variant: 'warning',
           duration: 12000,
         });
@@ -256,20 +279,18 @@ export function ModalExtraContent({
       return;
     }
 
-    let phase: "first" | "loop" = "first";
     const startSec = Math.max(0, audioUi.startSeconds);
 
     const beginPlayback = () => {
-      if (phase === "first" && startSec > 0 && Number.isFinite(el.duration) && el.duration > 0) {
+      if (startSec > 0 && Number.isFinite(el.duration) && el.duration > 0) {
         el.currentTime = Math.min(startSec, Math.max(0, el.duration - 0.05));
       }
       void el.play().catch(() => { });
     };
 
     const onEnded = () => {
-      phase = "loop";
-      el.currentTime = 0;
-      void el.play().catch(() => { });
+      if (resolvedMonthIndex >= months.length - 1) return;
+      goNextMonth();
     };
 
     el.loop = false;
@@ -288,7 +309,7 @@ export function ModalExtraContent({
       el.removeEventListener("loadedmetadata", beginPlayback);
       el.pause();
     };
-  }, [open, audioSrc, audioUi.startSeconds, dialogPlaybackNonce, loadingContent, imageLoading]);
+  }, [open, audioSrc, audioUi.startSeconds, dialogPlaybackNonce, loadingContent, imageLoading, goNextMonth, resolvedMonthIndex, months.length]);
 
   useLayoutEffect(() => {
     setImageLoading(Boolean(backgroundImageUrl));
@@ -434,29 +455,6 @@ export function ModalExtraContent({
     setRemoveBusy(false);
   };
 
-  const goPrevMonth = useCallback(() => {
-    if (selectedMonthIndex > 0) {
-      setView((current) => ({ ...current, monthIndex: current.monthIndex - 1 }));
-    } else if (modalYear > minYear) {
-      const y = modalYear - 1;
-      setView({ year: y, monthIndex: months.length - 1 });
-      onYearChange(y);
-    }
-  }, [selectedMonthIndex, modalYear, minYear, months.length, onYearChange]);
-
-  const goNextMonth = useCallback(() => {
-    if (selectedMonthIndex < months.length - 1) {
-      setView((current) => ({ ...current, monthIndex: current.monthIndex + 1 }));
-    } else if (modalYear < maxYear) {
-      const y = modalYear + 1;
-      setView({ year: y, monthIndex: 0 });
-      onYearChange(y);
-    }
-  }, [selectedMonthIndex, modalYear, maxYear, months.length, onYearChange]);
-
-  const prevDisabled = resolvedMonthIndex === 0 && modalYear <= minYear;
-  const nextDisabled = resolvedMonthIndex === months.length - 1 && modalYear >= maxYear;
-
   const focusKeyboardAnchor = useCallback(() => {
     keyboardFocusAnchorRef.current?.focus({ preventScroll: true });
   }, []);
@@ -598,21 +596,10 @@ export function ModalExtraContent({
             </div>
             <div className={styles.mediaRow}>
               {audioUi.hasTrack ? (
-                <>
-                  <div className={styles.soundtrackRow}>
-                    <span className={styles.soundtrackName} title={displayAudioName}>
-                      {truncateFilename(displayAudioName, 36)}
-                    </span>
-                    <button
-                      type="button"
-                      className={styles.soundtrackRemove}
-                      aria-label="Remove soundtrack"
-                      disabled={removeBusy || uploadBusy}
-                      onClick={() => void handleRemoveAudio()}
-                    >
-                      <Cross2Icon width={16} height={16} />
-                    </button>
-                  </div>
+                <div className={styles.soundtrackRow}>
+                  <span className={styles.soundtrackName} title={displayAudioName}>
+                    {truncateFilename(displayAudioName, 36)}
+                  </span>
                   <div className={styles.startTimeRow}>
                     <label className={styles.startTimeLabel} htmlFor="secret-audio-start">
                       First play starts at
@@ -630,7 +617,16 @@ export function ModalExtraContent({
                       aria-describedby="secret-audio-start-hint"
                     />
                   </div>
-                </>
+                  <button
+                    type="button"
+                    className={styles.soundtrackRemove}
+                    aria-label="Remove soundtrack"
+                    disabled={removeBusy || uploadBusy}
+                    onClick={() => void handleRemoveAudio()}
+                  >
+                    <Cross2Icon width={16} height={16} />
+                  </button>
+                </div>
               ) : (
                 <button
                   type="button"
