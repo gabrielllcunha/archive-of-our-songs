@@ -1,3 +1,15 @@
+@mixin phone-landscape {
+  @media (hover: none) and (pointer: coarse) and (orientation: landscape) and (max-height: 600px) {
+    @content;
+  }
+}
+
+@mixin mobile-or-phone-landscape {
+  @media (max-width: 768px), (hover: none) and (pointer: coarse) and (orientation: landscape) and (max-height: 600px) {
+    @content;
+  }
+}
+
 @mixin subtle-scrollbar-y {
   scrollbar-width: thin;
   scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
@@ -71,7 +83,7 @@
     outline: none;
   }
 
-  @media (max-width: 768px) {
+  @include mobile-or-phone-landscape {
     top: 0 !important;
     left: 0 !important;
     transform: none !important;
@@ -90,34 +102,49 @@
   min-height: 100%;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
+  overscroll-behavior-x: none;
+
+  @include mobile-or-phone-landscape {
+    touch-action: pan-y;
+  }
+}
+
+.swipeLayer {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  will-change: transform;
 }
 
 .mobileCloseButton {
   display: none;
+  position: absolute;
+  top: calc(12px + env(safe-area-inset-top, 0px));
+  right: calc(12px + env(safe-area-inset-right, 0px));
+  z-index: 20;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 50%;
+  background: rgba(10, 10, 10, 0.72);
+  backdrop-filter: blur(8px);
+  color: rgba(255, 255, 255, 0.92);
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease;
 
-  @media (max-width: 768px) {
+  &:hover {
+    background: rgba(20, 20, 20, 0.88);
+    border-color: rgba(255, 255, 255, 0.4);
+  }
+
+  @include mobile-or-phone-landscape {
     display: flex;
-    position: absolute;
-    top: calc(12px + env(safe-area-inset-top, 0px));
-    right: 12px;
-    z-index: 10;
-    align-items: center;
-    justify-content: center;
-    width: 36px;
-    height: 36px;
-    padding: 0;
-    border: 1px solid rgba(255, 255, 255, 0.22);
-    border-radius: 50%;
-    background: rgba(10, 10, 10, 0.72);
-    backdrop-filter: blur(8px);
-    color: rgba(255, 255, 255, 0.92);
-    cursor: pointer;
-    transition: background 0.2s ease, border-color 0.2s ease;
-
-    &:hover {
-      background: rgba(20, 20, 20, 0.88);
-      border-color: rgba(255, 255, 255, 0.4);
-    }
   }
 }
 
@@ -141,6 +168,10 @@
   @media (max-width: 768px) {
     flex-direction: column;
     justify-content: flex-end;
+  }
+
+  @include phone-landscape {
+    display: none;
   }
 }
 
@@ -458,6 +489,10 @@
   justify-content: center;
   pointer-events: none;
   z-index: 3;
+
+  @include phone-landscape {
+    display: none;
+  }
 }
 
 .keyboardFocusAnchor {

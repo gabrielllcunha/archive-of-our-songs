@@ -29,6 +29,247 @@ function truncateFilename(name: string, maxLen: number) {
   return `${name.slice(0, maxLen - 1)}…`;
 }
 
+const MOBILE_SWIPE_MQ = "(hover: none) and (pointer: coarse)";
+const SWIPE_AXIS_LOCK_PX = 12;
+const SWIPE_COMMIT_PX = 64;
+const SWIPE_COMMIT_RATIO = 0.18;
+const SWIPE_VELOCITY = 0.4;
+const SWIPE_OUT_MS = 220;
+const SWIPE_IN_MS = 340;
+const EDGE_RESISTANCE = 0.22;
+
+function isMobileSwipeDevice() {
+  return window.matchMedia(MOBILE_SWIPE_MQ).matches;
+}
+
+function isMonthSwipeIgnoredTarget(target: EventTarget | null) {
+  if (!(target instanceof Element)) return false;
+  return Boolean(target.closest("button, input, textarea, select, a"));
+}
+
+function waitMs(ms: number) {
+  return new Promise<void>((resolve) => {
+    window.setTimeout(resolve, ms);
+  });
+}
+
+function useMobileMonthSwipe({
+  open,
+  onPrev,
+  onNext,
+  prevDisabled,
+  nextDisabled,
+}: {
+  open: boolean;
+  onPrev: () => void;
+  onNext: () => void;
+  prevDisabled: boolean;
+  nextDisabled: boolean;
+}) {
+  const surfaceRef = useRef<HTMLDivElement | null>(null);
+  const layerRef = useRef<HTMLDivElement | null>(null);
+  const onPrevRef = useRef(onPrev);
+  const onNextRef = useRef(onNext);
+  const prevDisabledRef = useRef(prevDisabled);
+  const nextDisabledRef = useRef(nextDisabled);
+  onPrevRef.current = onPrev;
+  onNextRef.current = onNext;
+  prevDisabledRef.current = prevDisabled;
+  nextDisabledRef.current = nextDisabled;
+
+  useEffect(() => {
+    if (!open) return;
+    const surface = surfaceRef.current;
+    const layer = layerRef.current;
+    if (!surface || !layer) return;
+
+    let cancelled = false;
+    const state = {
+      pointerId: -1,
+      startX: 0,
+      startY: 0,
+      lastX: 0,
+      lastT: 0,
+      velocity: 0,
+      axis: null as "h" | "v" | null,
+      offset: 0,
+      active: false,
+      busy: false,
+    };
+
+    const prefersReducedMotion = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    const setOffset = (px: number, animateMs = 0) => {
+      if (cancelled) return;
+      state.offset = px;
+      const width = Math.max(surface.clientWidth, 1);
+      const fade = Math.min(Math.abs(px) / width * 0.28, 0.28);
+      layer.style.transition = animateMs > 0
+        ? `transform ${animateMs}ms cubic-bezier(0.22, 1, 0.36, 1), opacity ${animateMs}ms ease`
+        : "none";
+      layer.style.transform = `translate3d(${px}px, 0, 0)`;
+      layer.style.opacity = px === 0 ? "1" : String(1 - fade);
+    };
+
+    const resetLayer = () => {
+      layer.style.transition = "none";
+      layer.style.transform = "";
+      layer.style.opacity = "";
+      state.offset = 0;
+    };
+
+    const resist = (dx: number) => {
+      const blocked = (dx > 0 && prevDisabledRef.current) || (dx < 0 && nextDisabledRef.current);
+      return blocked ? dx * EDGE_RESISTANCE : dx;
+    };
+
+    const finishSwipe = async (commitDir: "prev" | "next" | null) => {
+      const width = Math.max(surface.clientWidth, 1);
+      if (!commitDir) {
+        setOffset(0, 280);
+        await waitMs(300);
+        if (!cancelled) resetLayer();
+        return;
+      }
+
+      if (prefersReducedMotion()) {
+        resetLayer();
+        if (commitDir === "next") onNextRef.current();
+        else onPrevRef.current();
+        return;
+      }
+
+      setOffset(commitDir === "next" ? -width : width, SWIPE_OUT_MS);
+      await waitMs(SWIPE_OUT_MS);
+      if (cancelled) return;
+      setOffset(commitDir === "next" ? width : -width, 0);
+      if (commitDir === "next") onNextRef.current();
+      else onPrevRef.current();
+      await new Promise<void>((resolve) => {
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => resolve());
+        });
+      });
+      if (cancelled) return;
+      setOffset(0, SWIPE_IN_MS);
+      await waitMs(SWIPE_IN_MS);
+      if (!cancelled) resetLayer();
+    };
+
+    const onPointerDown = (event: PointerEvent) => {
+      if (state.busy || state.active) return;
+      if (!isMobileSwipeDevice()) return;
+      if (event.pointerType !== "touch" && event.pointerType !== "mouse") return;
+      if (event.button !== 0) return;
+      if (isMonthSwipeIgnoredTarget(event.target)) return;
+
+      state.active = true;
+      state.axis = null;
+      state.pointerId = event.pointerId;
+      state.startX = event.clientX;
+      state.startY = event.clientY;
+      state.lastX = event.clientX;
+      state.lastT = event.timeStamp;
+      state.velocity = 0;
+      state.offset = 0;
+    };
+
+    const onPointerMove = (event: PointerEvent) => {
+      if (!state.active || event.pointerId !== state.pointerId) return;
+
+      const dx = event.clientX - state.startX;
+      const dy = event.clientY - state.startY;
+      const dt = event.timeStamp - state.lastT;
+      if (dt > 0) {
+        state.velocity = (event.clientX - state.lastX) / dt;
+      }
+      state.lastX = event.clientX;
+      state.lastT = event.timeStamp;
+
+      if (!state.axis) {
+        if (Math.abs(dx) < SWIPE_AXIS_LOCK_PX && Math.abs(dy) < SWIPE_AXIS_LOCK_PX) return;
+        state.axis = Math.abs(dx) >= Math.abs(dy) ? "h" : "v";
+        if (state.axis === "h") {
+          surface.setPointerCapture(event.pointerId);
+        }
+      }
+
+      if (state.axis !== "h") return;
+      event.preventDefault();
+      setOffset(resist(dx));
+    };
+
+    const onPointerUp = (event: PointerEvent) => {
+      if (!state.active || event.pointerId !== state.pointerId) return;
+      const wasHorizontal = state.axis === "h";
+      const offset = state.offset;
+      const velocity = state.velocity;
+      state.active = false;
+      state.axis = null;
+      state.pointerId = -1;
+
+      if (surface.hasPointerCapture(event.pointerId)) {
+        surface.releasePointerCapture(event.pointerId);
+      }
+
+      if (!wasHorizontal) {
+        resetLayer();
+        return;
+      }
+
+      const width = Math.max(surface.clientWidth, 1);
+      const threshold = Math.min(SWIPE_COMMIT_PX, width * SWIPE_COMMIT_RATIO);
+      const dir: "prev" | "next" = offset < 0 ? "next" : "prev";
+      const blocked = dir === "next" ? nextDisabledRef.current : prevDisabledRef.current;
+      const distanceOk = Math.abs(offset) >= threshold;
+      const velocityOk =
+        (dir === "next" && velocity <= -SWIPE_VELOCITY) ||
+        (dir === "prev" && velocity >= SWIPE_VELOCITY);
+      const commit = !blocked && (distanceOk || (velocityOk && Math.abs(offset) > 16));
+
+      state.busy = true;
+      void finishSwipe(commit ? dir : null).finally(() => {
+        state.busy = false;
+      });
+    };
+
+    const onPointerCancel = (event: PointerEvent) => {
+      if (!state.active || event.pointerId !== state.pointerId) return;
+      state.active = false;
+      state.axis = null;
+      state.pointerId = -1;
+      state.busy = true;
+      void finishSwipe(null).finally(() => {
+        state.busy = false;
+      });
+    };
+
+    const onTouchMove = (event: TouchEvent) => {
+      if (state.active && state.axis === "h") {
+        event.preventDefault();
+      }
+    };
+
+    surface.addEventListener("pointerdown", onPointerDown);
+    surface.addEventListener("pointermove", onPointerMove, { passive: false });
+    surface.addEventListener("pointerup", onPointerUp);
+    surface.addEventListener("pointercancel", onPointerCancel);
+    surface.addEventListener("touchmove", onTouchMove, { passive: false });
+
+    return () => {
+      cancelled = true;
+      surface.removeEventListener("pointerdown", onPointerDown);
+      surface.removeEventListener("pointermove", onPointerMove);
+      surface.removeEventListener("pointerup", onPointerUp);
+      surface.removeEventListener("pointercancel", onPointerCancel);
+      surface.removeEventListener("touchmove", onTouchMove);
+      resetLayer();
+    };
+  }, [open]);
+
+  return { surfaceRef, layerRef };
+}
+
 export function ModalExtraContent({
   year,
   albums,
@@ -116,6 +357,13 @@ export function ModalExtraContent({
 
   const prevDisabled = resolvedMonthIndex === 0 && modalYear <= minYear;
   const nextDisabled = resolvedMonthIndex === months.length - 1 && modalYear >= maxYear;
+  const { surfaceRef, layerRef } = useMobileMonthSwipe({
+    open,
+    onPrev: goPrevMonth,
+    onNext: goNextMonth,
+    prevDisabled,
+    nextDisabled,
+  });
 
   useEffect(() => {
     const username = localStorage.getItem("lastfm_username");
@@ -528,7 +776,7 @@ export function ModalExtraContent({
         onChange={handleAudioFileChange}
         aria-hidden
       />
-      <div className={styles.dialogContent}>
+      <div ref={surfaceRef} className={styles.dialogContent}>
         <button
           type="button"
           className={styles.mobileCloseButton}
@@ -544,6 +792,7 @@ export function ModalExtraContent({
         >
           <Cross2Icon width={18} height={18} />
         </button>
+        <div ref={layerRef} className={styles.swipeLayer}>
         {backgroundImageUrl ? (
           <Image
             key={`${modalYear}-${selectedMonth}-${backgroundImageUrl}`}
@@ -681,6 +930,7 @@ export function ModalExtraContent({
             )}
           </div>
           <div className={styles.rightSpacer} />
+        </div>
         </div>
       </div>
     </Dialog>
