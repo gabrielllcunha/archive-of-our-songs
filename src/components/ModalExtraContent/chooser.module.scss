@@ -1,0 +1,287 @@
+.chooserOverlay {
+  z-index: 100000;
+}
+
+.chooserDialog {
+  z-index: 100001 !important;
+  width: min(420px, 92vw) !important;
+  max-width: min(420px, 92vw) !important;
+  padding: 16px !important;
+  background: rgba(16, 16, 16, 0.96) !important;
+  color: #fff;
+}
+
+.chooserHeader {
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr) 32px;
+  align-items: center;
+  margin-bottom: 14px;
+}
+
+.chooserTitle {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 650;
+  text-align: center;
+  letter-spacing: -0.02em;
+}
+
+.headerButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.85);
+  cursor: pointer;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.08);
+  }
+}
+
+.headerSpacer {
+  width: 32px;
+  height: 32px;
+}
+
+.sourceRow {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.sourceButton {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 72px;
+  padding: 10px 6px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.05);
+  color: #fff;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.28);
+  }
+}
+
+.sourceIcon {
+  width: 22px;
+  height: 22px;
+}
+
+.sourceButton.sourceMp3 {
+  border-color: rgba(232, 176, 80, 0.22);
+
+  .sourceIcon {
+    color: #e8b050;
+  }
+
+  &:hover {
+    border-color: rgba(232, 176, 80, 0.4);
+  }
+}
+
+.sourceButton.sourceSpotify {
+  border-color: rgba(30, 215, 96, 0.22);
+
+  .sourceIcon {
+    color: #1ed760;
+  }
+
+  &:hover {
+    border-color: rgba(30, 215, 96, 0.4);
+  }
+}
+
+.sourceButton.sourceYoutube {
+  border-color: rgba(255, 48, 48, 0.24);
+
+  .sourceIcon {
+    color: #ff2d2d;
+  }
+
+  &:hover {
+    border-color: rgba(255, 48, 48, 0.42);
+  }
+}
+
+.stepBody {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.hiddenInput {
+  display: none;
+}
+
+.dropzone {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 120px;
+  padding: 16px;
+  border: 1px dashed rgba(255, 255, 255, 0.28);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.03);
+  color: rgba(255, 255, 255, 0.78);
+  font-size: 0.82rem;
+  line-height: 1.4;
+  text-align: center;
+  cursor: pointer;
+
+  &:hover:not(:disabled),
+  &:focus-visible {
+    border-color: rgba(255, 255, 255, 0.45);
+    background: rgba(255, 255, 255, 0.06);
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+}
+
+.dropzoneActive {
+  border-color: rgba(255, 255, 255, 0.6);
+  background: rgba(255, 255, 255, 0.09);
+}
+
+.fieldLabel {
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.48);
+}
+
+.textInput {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 9px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.22);
+  color: rgba(255, 255, 255, 0.94);
+  font-size: 0.85rem;
+  outline: none;
+
+  &:focus {
+    border-color: rgba(255, 255, 255, 0.45);
+  }
+}
+
+.primaryButton {
+  min-height: 38px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+
+  &:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.16);
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
+
+.results {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.resultButton {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.04);
+  color: #fff;
+  text-align: left;
+  cursor: pointer;
+
+  &:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.09);
+  }
+
+  &:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
+}
+
+.resultName {
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.resultMeta {
+  font-size: 0.7rem;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.searchStatus {
+  display: flex;
+  justify-content: center;
+  min-height: 24px;
+}
+
+.accountRow {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.linkButton {
+  align-self: flex-start;
+  padding: 0;
+  border: none;
+  background: none;
+  color: rgba(255, 255, 255, 0.62);
+  font-size: 0.72rem;
+  text-decoration: underline;
+  cursor: pointer;
+
+  &:hover {
+    color: #fff;
+  }
+}
+
+.hint {
+  margin: 0;
+  font-size: 0.72rem;
+  color: rgba(255, 255, 255, 0.42);
+}
+
+.error {
+  margin: 10px 0 0;
+  font-size: 0.75rem;
+  line-height: 1.35;
+  color: rgba(255, 200, 120, 0.95);
+}

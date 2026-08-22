@@ -517,11 +517,12 @@
   outline: none;
 }
 
-.hiddenAudio {
+.hiddenExternalPlayer {
   position: absolute;
-  width: 0;
-  height: 0;
+  width: 1px;
+  height: 1px;
   opacity: 0;
+  overflow: hidden;
   pointer-events: none;
 }
 
@@ -606,6 +607,16 @@
     column-gap: 8px;
     row-gap: 0;
     padding: 6px 8px;
+  }
+}
+
+.soundtrackRowCompact {
+  grid-template-areas: "name remove";
+  grid-template-columns: minmax(0, 1fr) auto;
+
+  @media (max-width: 768px) {
+    grid-template-areas: "name remove";
+    grid-template-columns: minmax(0, 1fr) auto;
   }
 }
 

@@ -35,6 +35,10 @@ export async function performUnauthorizedLogout(): Promise<void> {
     localStorage.removeItem('lastfm_username');
     localStorage.removeItem('lastfm_token');
     localStorage.removeItem('lastfm_auth_started');
+    try {
+      await fetch('/api/spotify/disconnect', { method: 'POST' });
+    } catch {
+    }
     notifyUnauthorizedListeners();
   } finally {
     logoutInProgress = false;
@@ -43,6 +47,10 @@ export async function performUnauthorizedLogout(): Promise<void> {
 
 export async function handleUnauthorizedResponse(response: Response): Promise<boolean> {
   if (response.status !== 401) return false;
+  const payload = await response.clone().json().catch(() => ({})) as { connected?: boolean; error?: string };
+  if (payload.connected === false || payload.error === "Spotify is not connected") {
+    return false;
+  }
   showToast({
     title: 'Session expired',
     description: 'Please sign in again to continue.',
