@@ -255,8 +255,7 @@ export function ModalInitialConfig({
       return;
     }
 
-    const explicitCb = process.env.NEXT_PUBLIC_CALLBACK_URL?.trim();
-    const callbackUrl = explicitCb && explicitCb.length > 0 ? explicitCb : `${window.location.origin}/`;
+    const callbackUrl = `${window.location.origin}/`;
 
     try {
       setIsLoading(true);
