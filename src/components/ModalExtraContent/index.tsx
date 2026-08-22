@@ -54,20 +54,19 @@ function waitMs(ms: number) {
 }
 
 function useMobileMonthSwipe({
-  open,
   onPrev,
   onNext,
   prevDisabled,
   nextDisabled,
 }: {
-  open: boolean;
   onPrev: () => void;
   onNext: () => void;
   prevDisabled: boolean;
   nextDisabled: boolean;
 }) {
-  const surfaceRef = useRef<HTMLDivElement | null>(null);
-  const layerRef = useRef<HTMLDivElement | null>(null);
+  const surfaceNodeRef = useRef<HTMLDivElement | null>(null);
+  const layerNodeRef = useRef<HTMLDivElement | null>(null);
+  const cleanupRef = useRef<(() => void) | null>(null);
   const onPrevRef = useRef(onPrev);
   const onNextRef = useRef(onNext);
   const prevDisabledRef = useRef(prevDisabled);
@@ -77,14 +76,16 @@ function useMobileMonthSwipe({
   prevDisabledRef.current = prevDisabled;
   nextDisabledRef.current = nextDisabled;
 
-  useEffect(() => {
-    if (!open) return;
-    const surface = surfaceRef.current;
-    const layer = layerRef.current;
+  const attachIfReady = useCallback(() => {
+    cleanupRef.current?.();
+    cleanupRef.current = null;
+    const surface = surfaceNodeRef.current;
+    const layer = layerNodeRef.current;
     if (!surface || !layer) return;
 
     let cancelled = false;
     const state = {
+      mode: "none" as "none" | "touch" | "pointer",
       pointerId: -1,
       startX: 0,
       startY: 0,
@@ -95,6 +96,7 @@ function useMobileMonthSwipe({
       offset: 0,
       active: false,
       busy: false,
+      windowBound: false,
     };
 
     const prefersReducedMotion = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -156,61 +158,78 @@ function useMobileMonthSwipe({
       if (!cancelled) resetLayer();
     };
 
-    const onPointerDown = (event: PointerEvent) => {
-      if (state.busy || state.active) return;
-      if (!isMobileSwipeDevice()) return;
-      if (event.pointerType !== "touch" && event.pointerType !== "mouse") return;
-      if (event.button !== 0) return;
-      if (isMonthSwipeIgnoredTarget(event.target)) return;
-
-      state.active = true;
-      state.axis = null;
-      state.pointerId = event.pointerId;
-      state.startX = event.clientX;
-      state.startY = event.clientY;
-      state.lastX = event.clientX;
-      state.lastT = event.timeStamp;
-      state.velocity = 0;
-      state.offset = 0;
+    const unbindWindow = () => {
+      if (!state.windowBound) return;
+      state.windowBound = false;
+      window.removeEventListener("pointermove", onPointerMove);
+      window.removeEventListener("pointerup", onPointerUp);
+      window.removeEventListener("pointercancel", onPointerCancel);
+      window.removeEventListener("touchmove", onTouchMove);
+      window.removeEventListener("touchend", onTouchEnd);
+      window.removeEventListener("touchcancel", onTouchCancel);
     };
 
-    const onPointerMove = (event: PointerEvent) => {
-      if (!state.active || event.pointerId !== state.pointerId) return;
+    const bindWindow = () => {
+      if (state.windowBound) return;
+      state.windowBound = true;
+      window.addEventListener("pointermove", onPointerMove, { passive: false });
+      window.addEventListener("pointerup", onPointerUp);
+      window.addEventListener("pointercancel", onPointerCancel);
+      window.addEventListener("touchmove", onTouchMove, { passive: false });
+      window.addEventListener("touchend", onTouchEnd);
+      window.addEventListener("touchcancel", onTouchCancel);
+    };
 
-      const dx = event.clientX - state.startX;
-      const dy = event.clientY - state.startY;
-      const dt = event.timeStamp - state.lastT;
+    const beginSwipe = (clientX: number, clientY: number, timeStamp: number, pointerId: number, mode: "touch" | "pointer") => {
+      state.active = true;
+      state.mode = mode;
+      state.axis = null;
+      state.pointerId = pointerId;
+      state.startX = clientX;
+      state.startY = clientY;
+      state.lastX = clientX;
+      state.lastT = timeStamp;
+      state.velocity = 0;
+      state.offset = 0;
+      bindWindow();
+    };
+
+    const handleMove = (clientX: number, clientY: number, timeStamp: number) => {
+      const dx = clientX - state.startX;
+      const dy = clientY - state.startY;
+      const dt = timeStamp - state.lastT;
       if (dt > 0) {
-        state.velocity = (event.clientX - state.lastX) / dt;
+        state.velocity = (clientX - state.lastX) / dt;
       }
-      state.lastX = event.clientX;
-      state.lastT = event.timeStamp;
+      state.lastX = clientX;
+      state.lastT = timeStamp;
 
       if (!state.axis) {
         if (Math.abs(dx) < SWIPE_AXIS_LOCK_PX && Math.abs(dy) < SWIPE_AXIS_LOCK_PX) return;
         state.axis = Math.abs(dx) >= Math.abs(dy) ? "h" : "v";
-        if (state.axis === "h") {
-          surface.setPointerCapture(event.pointerId);
+        if (state.axis === "v") {
+          unbindWindow();
+          state.active = false;
+          state.mode = "none";
+          state.pointerId = -1;
+          resetLayer();
+          return;
         }
       }
 
       if (state.axis !== "h") return;
-      event.preventDefault();
       setOffset(resist(dx));
     };
 
-    const onPointerUp = (event: PointerEvent) => {
-      if (!state.active || event.pointerId !== state.pointerId) return;
+    const completeSwipe = () => {
       const wasHorizontal = state.axis === "h";
       const offset = state.offset;
       const velocity = state.velocity;
       state.active = false;
+      state.mode = "none";
       state.axis = null;
       state.pointerId = -1;
-
-      if (surface.hasPointerCapture(event.pointerId)) {
-        surface.releasePointerCapture(event.pointerId);
-      }
+      unbindWindow();
 
       if (!wasHorizontal) {
         resetLayer();
@@ -233,39 +252,101 @@ function useMobileMonthSwipe({
       });
     };
 
-    const onPointerCancel = (event: PointerEvent) => {
-      if (!state.active || event.pointerId !== state.pointerId) return;
-      state.active = false;
-      state.axis = null;
-      state.pointerId = -1;
-      state.busy = true;
-      void finishSwipe(null).finally(() => {
-        state.busy = false;
-      });
+    const onTouchStart = (event: TouchEvent) => {
+      if (state.busy || state.active) return;
+      if (!isMobileSwipeDevice()) return;
+      if (isMonthSwipeIgnoredTarget(event.target)) return;
+      if (event.touches.length !== 1) return;
+      const touch = event.touches[0];
+      beginSwipe(touch.clientX, touch.clientY, event.timeStamp, touch.identifier, "touch");
     };
 
     const onTouchMove = (event: TouchEvent) => {
-      if (state.active && state.axis === "h") {
-        event.preventDefault();
-      }
+      if (!state.active || state.mode !== "touch") return;
+      const touch =
+        Array.from(event.changedTouches).find((item) => item.identifier === state.pointerId) ??
+        Array.from(event.touches).find((item) => item.identifier === state.pointerId) ??
+        event.touches[0];
+      if (!touch) return;
+      handleMove(touch.clientX, touch.clientY, event.timeStamp);
+      if (state.axis === "h") event.preventDefault();
     };
 
-    surface.addEventListener("pointerdown", onPointerDown);
-    surface.addEventListener("pointermove", onPointerMove, { passive: false });
-    surface.addEventListener("pointerup", onPointerUp);
-    surface.addEventListener("pointercancel", onPointerCancel);
-    surface.addEventListener("touchmove", onTouchMove, { passive: false });
+    const onTouchEnd = (event: TouchEvent) => {
+      if (!state.active || state.mode !== "touch") return;
+      const ended = Array.from(event.changedTouches).some((item) => item.identifier === state.pointerId);
+      if (!ended && event.touches.length > 0) return;
+      completeSwipe();
+    };
 
-    return () => {
+    const onTouchCancel = (event: TouchEvent) => {
+      if (!state.active || state.mode !== "touch") return;
+      const ended = Array.from(event.changedTouches).some((item) => item.identifier === state.pointerId);
+      if (!ended && event.touches.length > 0) return;
+      completeSwipe();
+    };
+
+    const onPointerDown = (event: PointerEvent) => {
+      if (state.busy || state.active) return;
+      if (!isMobileSwipeDevice()) return;
+      if (event.pointerType === "touch") return;
+      if (event.pointerType !== "mouse") return;
+      if (event.button !== 0) return;
+      if (isMonthSwipeIgnoredTarget(event.target)) return;
+      beginSwipe(event.clientX, event.clientY, event.timeStamp, event.pointerId, "pointer");
+    };
+
+    const onPointerMove = (event: PointerEvent) => {
+      if (!state.active || state.mode !== "pointer") return;
+      if (event.pointerId !== state.pointerId) return;
+      handleMove(event.clientX, event.clientY, event.timeStamp);
+      if (state.axis === "h") event.preventDefault();
+    };
+
+    const onPointerUp = (event: PointerEvent) => {
+      if (!state.active || state.mode !== "pointer") return;
+      if (event.pointerId !== state.pointerId) return;
+      completeSwipe();
+    };
+
+    const onPointerCancel = (event: PointerEvent) => {
+      if (!state.active || state.mode !== "pointer") return;
+      if (event.pointerId !== state.pointerId) return;
+      completeSwipe();
+    };
+
+    const onDragStart = (event: DragEvent) => {
+      event.preventDefault();
+    };
+
+    surface.addEventListener("touchstart", onTouchStart, { passive: true });
+    surface.addEventListener("pointerdown", onPointerDown);
+    surface.addEventListener("dragstart", onDragStart);
+
+    cleanupRef.current = () => {
       cancelled = true;
+      unbindWindow();
+      surface.removeEventListener("touchstart", onTouchStart);
       surface.removeEventListener("pointerdown", onPointerDown);
-      surface.removeEventListener("pointermove", onPointerMove);
-      surface.removeEventListener("pointerup", onPointerUp);
-      surface.removeEventListener("pointercancel", onPointerCancel);
-      surface.removeEventListener("touchmove", onTouchMove);
+      surface.removeEventListener("dragstart", onDragStart);
       resetLayer();
     };
-  }, [open]);
+  }, []);
+
+  const surfaceRef = useCallback((node: HTMLDivElement | null) => {
+    surfaceNodeRef.current = node;
+    attachIfReady();
+  }, [attachIfReady]);
+
+  const layerRef = useCallback((node: HTMLDivElement | null) => {
+    layerNodeRef.current = node;
+    attachIfReady();
+  }, [attachIfReady]);
+
+  useEffect(() => () => {
+    cleanupRef.current?.();
+    cleanupRef.current = null;
+  }, []);
 
   return { surfaceRef, layerRef };
 }
@@ -358,7 +439,6 @@ export function ModalExtraContent({
   const prevDisabled = resolvedMonthIndex === 0 && modalYear <= minYear;
   const nextDisabled = resolvedMonthIndex === months.length - 1 && modalYear >= maxYear;
   const { surfaceRef, layerRef } = useMobileMonthSwipe({
-    open,
     onPrev: goPrevMonth,
     onNext: goNextMonth,
     prevDisabled,
@@ -800,6 +880,7 @@ export function ModalExtraContent({
             src={backgroundImageUrl}
             alt={selectedAlbum?.name || selectedMonth}
             fill
+            draggable={false}
             sizes="(max-width: 1024px) 100vw, 86vh"
             unoptimized
             onLoad={() => setImageLoading(false)}
