@@ -1,0 +1,230 @@
+import { useEffect, useRef } from "react";
+import { authenticatedFetch, UnauthorizedSessionError } from "@/utils/authenticatedFetch";
+import styles from "./styles.module.scss";
+
+type YoutubePlayer = {
+  playVideo: () => void;
+  stopVideo: () => void;
+  destroy: () => void;
+};
+
+type SpotifyWebPlayer = {
+  connect: () => Promise<boolean>;
+  disconnect: () => void;
+  activateElement?: () => Promise<void>;
+  addListener: (event: string, cb: (payload: { device_id?: string; paused?: boolean; position?: number } | null) => void) => boolean;
+};
+
+declare global {
+  interface Window {
+    YT?: {
+      Player: new (el: HTMLElement, opts: Record<string, unknown>) => YoutubePlayer;
+      PlayerState?: { ENDED: number };
+    };
+    onYouTubeIframeAPIReady?: () => void;
+    Spotify?: { Player: new (opts: Record<string, unknown>) => SpotifyWebPlayer };
+    onSpotifyWebPlaybackSDKReady?: () => void;
+  }
+}
+
+function loadYoutubeApi() {
+  if (window.YT?.Player) return Promise.resolve();
+  return new Promise<void>((resolve) => {
+    const previous = window.onYouTubeIframeAPIReady;
+    window.onYouTubeIframeAPIReady = () => {
+      previous?.();
+      resolve();
+    };
+    if (!document.getElementById("yt-iframe-api")) {
+      const tag = document.createElement("script");
+      tag.id = "yt-iframe-api";
+      tag.src = "https://www.youtube.com/iframe_api";
+      document.head.appendChild(tag);
+    }
+    if (window.YT?.Player) resolve();
+  });
+}
+
+function loadSpotifyPlaybackSdk() {
+  if (window.Spotify?.Player) return Promise.resolve();
+  return new Promise<void>((resolve, reject) => {
+    const previous = window.onSpotifyWebPlaybackSDKReady;
+    window.onSpotifyWebPlaybackSDKReady = () => {
+      previous?.();
+      resolve();
+    };
+    if (!document.getElementById("spotify-player-sdk")) {
+      const tag = document.createElement("script");
+      tag.id = "spotify-player-sdk";
+      tag.src = "https://sdk.scdn.co/spotify-player.js";
+      tag.async = true;
+      tag.onerror = () => reject(new Error("Could not load Spotify playback"));
+      document.body.appendChild(tag);
+    }
+    if (window.Spotify?.Player) resolve();
+  });
+}
+
+async function fetchPlayerToken() {
+  const res = await authenticatedFetch("/api/spotify/player-token");
+  const data = (await res.json().catch(() => ({}))) as { access_token?: string | null; premium?: boolean; connected?: boolean };
+  if (!res.ok || !data.connected || !data.access_token) return null;
+  return data;
+}
+
+async function playPreview(audio: HTMLAudioElement, trackId: string, onEnded: () => void) {
+  const res = await authenticatedFetch(`/api/spotify/preview?id=${encodeURIComponent(trackId)}`);
+  const data = (await res.json().catch(() => ({}))) as { url?: string | null };
+  if (!data.url) return false;
+  audio.src = data.url;
+  audio.loop = false;
+  audio.onended = onEnded;
+  await audio.play().catch(() => undefined);
+  return true;
+}
+
+interface ExternalSoundtrackPlayerProps {
+  source: "youtube" | "spotify" | null;
+  externalId: string | null;
+  active: boolean;
+  onEnded: () => void;
+}
+
+export function ExternalSoundtrackPlayer({ source, externalId, active, onEnded }: ExternalSoundtrackPlayerProps) {
+  const hostRef = useRef<HTMLDivElement | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const onEndedRef = useRef(onEnded);
+  onEndedRef.current = onEnded;
+
+  useEffect(() => {
+    const host = hostRef.current;
+    const audio = audioRef.current;
+    if (!host || !active || !source || !externalId) {
+      host?.replaceChildren();
+      if (audio) {
+        audio.pause();
+        audio.removeAttribute("src");
+        audio.load();
+      }
+      return;
+    }
+
+    let cancelled = false;
+    let youtubePlayer: YoutubePlayer | null = null;
+    let spotifyPlayer: SpotifyWebPlayer | null = null;
+
+    const mount = async () => {
+      host.replaceChildren();
+
+      if (source === "youtube") {
+        const target = document.createElement("div");
+        host.appendChild(target);
+        await loadYoutubeApi();
+        if (cancelled || !window.YT?.Player) return;
+        youtubePlayer = new window.YT.Player(target, {
+          videoId: externalId,
+          width: 1,
+          height: 1,
+          playerVars: { autoplay: 1, controls: 0, rel: 0, modestbranding: 1 },
+          events: {
+            onReady: (event: { target: YoutubePlayer }) => {
+              event.target.playVideo();
+            },
+            onStateChange: (event: { data: number }) => {
+              if (event.data === window.YT?.PlayerState?.ENDED) {
+                onEndedRef.current();
+              }
+            },
+          },
+        });
+        return;
+      }
+
+      if (!audio) return;
+      try {
+        const token = await fetchPlayerToken();
+        if (cancelled) return;
+        if (token?.premium) {
+          await loadSpotifyPlaybackSdk();
+          if (cancelled || !window.Spotify?.Player) return;
+          const player = new window.Spotify.Player({
+            name: "Archive of Our Songs",
+            getOAuthToken: (cb: (token: string) => void) => {
+              void fetchPlayerToken().then((next) => {
+                if (next?.access_token) cb(next.access_token);
+              });
+            },
+            volume: 0.85,
+          });
+          spotifyPlayer = player;
+          let lastPosition = 0;
+          player.addListener("player_state_changed", (state: { paused?: boolean; position?: number } | null) => {
+            if (!state) return;
+            const position = state.position ?? 0;
+            if (state.paused && position === 0 && lastPosition > 1200) {
+              onEndedRef.current();
+            }
+            lastPosition = position;
+          });
+          player.addListener("ready", (payload) => {
+            const deviceId = payload?.device_id;
+            if (!deviceId) return;
+            void (async () => {
+              const fresh = await fetchPlayerToken();
+              if (!fresh?.access_token || cancelled) return;
+              await fetch(`https://api.spotify.com/v1/me/player/play?device_id=${encodeURIComponent(deviceId)}`, {
+                method: "PUT",
+                headers: {
+                  Authorization: `Bearer ${fresh.access_token}`,
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify({ uris: [`spotify:track:${externalId}`] }),
+              }).catch(() => undefined);
+            })();
+          });
+          player.addListener("account_error", () => {
+            void playPreview(audio, externalId, () => onEndedRef.current());
+          });
+          await player.activateElement?.().catch(() => undefined);
+          await player.connect();
+          return;
+        }
+        await playPreview(audio, externalId, () => onEndedRef.current());
+      } catch (err) {
+        if (err instanceof UnauthorizedSessionError) return;
+        if (!cancelled && audio) {
+          await playPreview(audio, externalId, () => onEndedRef.current()).catch(() => undefined);
+        }
+      }
+    };
+
+    void mount();
+
+    return () => {
+      cancelled = true;
+      try {
+        youtubePlayer?.stopVideo();
+        youtubePlayer?.destroy();
+      } catch {
+      }
+      try {
+        spotifyPlayer?.disconnect();
+      } catch {
+      }
+      if (audio) {
+        audio.pause();
+        audio.removeAttribute("src");
+        audio.onended = null;
+        audio.load();
+      }
+      host.replaceChildren();
+    };
+  }, [active, source, externalId]);
+
+  return (
+    <>
+      <div ref={hostRef} className={styles.hiddenExternalPlayer} aria-hidden />
+      <audio ref={audioRef} className={styles.hiddenAudio} playsInline preload="auto" />
+    </>
+  );
+}

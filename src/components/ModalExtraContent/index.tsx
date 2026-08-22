@@ -1,14 +1,24 @@
 import { ArchiveIcon, ChevronLeftIcon, ChevronRightIcon, Cross2Icon, ImageIcon } from "@radix-ui/react-icons";
-import { HiOutlinePaperClip } from "react-icons/hi";
+import { HiOutlineMusicNote } from "react-icons/hi";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import { Album } from "@/models";
 import { secretPagesStorage } from "@/services/secretPagesStorage";
 import { yearlyDataStorage } from "@/services/yearlyDataStorage";
 import { formatSecondsAsMmSs, parseTimeToSeconds } from "@/utils/audioStartTime";
+import {
+  encodeSpotifySoundtrackPath,
+  encodeYoutubeSoundtrackPath,
+  getSoundtrackSource,
+  parseSpotifySoundtrackId,
+  parseYoutubeSoundtrackId,
+  type SoundtrackSource,
+} from "@/utils/soundtrackSource";
 import { InlineMarkdown, Skeleton, Spinner, useToast } from "@/components";
 import { Dialog } from "../Dialog";
 import { shouldIgnoreDialogDismiss } from "../Toast/dismissGuard";
+import { ExternalSoundtrackPlayer } from "./ExternalSoundtrackPlayer";
+import { SoundtrackChooser } from "./SoundtrackChooser";
 import styles from "./styles.module.scss";
 
 interface ModalExtraContentProps {
@@ -387,14 +397,16 @@ export function ModalExtraContent({
     hasTrack: boolean;
     filename: string | null;
     startSeconds: number;
-  }>({ hasTrack: false, filename: null, startSeconds: 0 });
+    source: SoundtrackSource | null;
+    externalId: string | null;
+  }>({ hasTrack: false, filename: null, startSeconds: 0, source: null, externalId: null });
   const [startTimeDraft, setStartTimeDraft] = useState("0:00");
+  const [chooserOpen, setChooserOpen] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const debounceRef = useRef<number | null>(null);
   const startTimeDebounceRef = useRef<number | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const audioBlobUrlRef = useRef<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const keyboardFocusAnchorRef = useRef<HTMLDivElement | null>(null);
   const viewRevisionRef = useRef(0);
   const decryptFailedRef = useRef(false);
@@ -406,7 +418,7 @@ export function ModalExtraContent({
   const selectedAlbum = albumEntries.find((item) => item.month === selectedMonth);
   const backgroundImageUrl = savedAlbumCoverUrl ?? selectedAlbum?.imageUrl ?? null;
 
-  const displayAudioName = audioUi.filename?.trim() || "Soundtrack";
+  const displayAudioName = (audioUi.filename?.trim() || "Soundtrack").replace(/\s—\s/g, " - ");
 
   const stopAudioPlayback = useCallback(() => {
     const el = audioRef.current;
@@ -500,7 +512,7 @@ export function ModalExtraContent({
     setContent("");
     setLoadingContent(true);
     setImageLoading(false);
-    setAudioUi({ hasTrack: false, filename: null, startSeconds: 0 });
+    setAudioUi({ hasTrack: false, filename: null, startSeconds: 0, source: null, externalId: null });
     setStartTimeDraft("0:00");
     setUploadError(null);
   }, [open, modalYear, selectedMonth]);
@@ -511,6 +523,7 @@ export function ModalExtraContent({
     }
     stopAudioPlayback();
     setAudioSrc(null);
+    setChooserOpen(false);
   }, [open, stopAudioPlayback]);
 
   useLayoutEffect(() => {
@@ -529,7 +542,7 @@ export function ModalExtraContent({
       setContent("");
       setSavedAlbumCoverUrl(null);
       setAudioSrc(null);
-      setAudioUi({ hasTrack: false, filename: null, startSeconds: 0 });
+      setAudioUi({ hasTrack: false, filename: null, startSeconds: 0, source: null, externalId: null });
       setStartTimeDraft("0:00");
       setLoadingContent(false);
       return;
@@ -556,9 +569,9 @@ export function ModalExtraContent({
           duration: 12000,
         });
       }
-      const hasTrack =
-        Boolean(rec.audio_storage_path) ||
-        Boolean(rec.audio_blob && rec.audio_blob.byteLength > 0);
+      const hasBlob = Boolean(rec.audio_blob && rec.audio_blob.byteLength > 0);
+      const source = getSoundtrackSource(rec.audio_storage_path, hasBlob);
+      const hasTrack = source !== null;
       const startSec =
         typeof rec.audio_start_seconds === "number" && Number.isFinite(rec.audio_start_seconds)
           ? Math.max(0, rec.audio_start_seconds)
@@ -567,9 +580,18 @@ export function ModalExtraContent({
         hasTrack,
         filename: rec.audio_original_filename,
         startSeconds: startSec,
+        source,
+        externalId:
+          source === "youtube"
+            ? parseYoutubeSoundtrackId(rec.audio_storage_path)
+            : source === "spotify"
+              ? parseSpotifySoundtrackId(rec.audio_storage_path)
+              : null,
       });
       setStartTimeDraft(formatSecondsAsMmSs(startSec));
-      const url = await secretPagesStorage.getAudioPlaybackUrl(modalYear, selectedMonth, rec);
+      const url = source === "file"
+        ? await secretPagesStorage.getAudioPlaybackUrl(modalYear, selectedMonth, rec)
+        : null;
       if (cancelled || revision !== viewRevisionRef.current) {
         if (url?.startsWith("blob:")) URL.revokeObjectURL(url);
         return;
@@ -597,7 +619,7 @@ export function ModalExtraContent({
   useEffect(() => {
     const el = audioRef.current;
     const loadingVisuals = loadingContent || imageLoading;
-    if (!open || !el || !audioSrc || loadingVisuals) {
+    if (!open || !el || !audioSrc || loadingVisuals || audioUi.source !== "file") {
       if (el && (!open || !audioSrc || loadingVisuals)) {
         el.pause();
         if (!open) {
@@ -637,7 +659,7 @@ export function ModalExtraContent({
       el.removeEventListener("loadedmetadata", beginPlayback);
       el.pause();
     };
-  }, [open, audioSrc, audioUi.startSeconds, dialogPlaybackNonce, loadingContent, imageLoading, goNextMonth, resolvedMonthIndex, months.length]);
+  }, [open, audioSrc, audioUi.startSeconds, audioUi.source, dialogPlaybackNonce, loadingContent, imageLoading, goNextMonth, resolvedMonthIndex, months.length]);
 
   useLayoutEffect(() => {
     setImageLoading(Boolean(backgroundImageUrl));
@@ -670,7 +692,7 @@ export function ModalExtraContent({
   const saveAudioStartSeconds = useCallback(
     async (seconds: number) => {
       const username = localStorage.getItem("lastfm_username");
-      if (!username || !audioUi.hasTrack) return;
+      if (!username || !audioUi.hasTrack || audioUi.source !== "file") return;
       const clamped = Math.max(0, seconds);
       await secretPagesStorage.storeSecretPage(username, modalYear, selectedMonth, {
         audio_start_seconds: clamped,
@@ -678,7 +700,7 @@ export function ModalExtraContent({
       setAudioUi((u) => ({ ...u, startSeconds: clamped }));
       setStartTimeDraft(formatSecondsAsMmSs(clamped));
     },
-    [audioUi.hasTrack, selectedMonth, modalYear]
+    [audioUi.hasTrack, audioUi.source, selectedMonth, modalYear]
   );
 
   const handleChange = (value: string) => {
@@ -732,30 +754,68 @@ export function ModalExtraContent({
     }, 500);
   };
 
-  const handleAudioFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    event.target.value = "";
+  const attachMp3File = async (file: File) => {
     const username = localStorage.getItem("lastfm_username");
-    if (!file || !username) return;
-
-    const maxBytes = 3.3 * 1024 * 1024;
-    if (file.size > maxBytes) {
-      showToast({
-        title: "File too large",
-        description: "Soundtracks must be 3.3MB or smaller.",
-        variant: "error",
-      });
-      return;
-    }
-
+    if (!username) return;
     setUploadBusy(true);
     setUploadError(null);
     try {
       await secretPagesStorage.uploadAudioFile(username, modalYear, selectedMonth, file);
       setAudioReloadNonce((n) => n + 1);
+      setChooserOpen(false);
     } catch (err) {
-      setUploadError(err instanceof Error ? err.message : "Upload failed");
+      const message = err instanceof Error ? err.message : "Upload failed";
+      setUploadError(message);
       setAudioReloadNonce((n) => n + 1);
+      throw err instanceof Error ? err : new Error(message);
+    } finally {
+      setUploadBusy(false);
+    }
+  };
+
+  const attachYoutubeSoundtrack = async (videoId: string, title: string) => {
+    const username = localStorage.getItem("lastfm_username");
+    if (!username) return;
+    setUploadBusy(true);
+    setUploadError(null);
+    try {
+      await secretPagesStorage.setExternalSoundtrack(
+        username,
+        modalYear,
+        selectedMonth,
+        encodeYoutubeSoundtrackPath(videoId),
+        title
+      );
+      setAudioReloadNonce((n) => n + 1);
+      setChooserOpen(false);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Could not save YouTube soundtrack";
+      setUploadError(message);
+      throw err instanceof Error ? err : new Error(message);
+    } finally {
+      setUploadBusy(false);
+    }
+  };
+
+  const attachSpotifySoundtrack = async (trackId: string, title: string) => {
+    const username = localStorage.getItem("lastfm_username");
+    if (!username) return;
+    setUploadBusy(true);
+    setUploadError(null);
+    try {
+      await secretPagesStorage.setExternalSoundtrack(
+        username,
+        modalYear,
+        selectedMonth,
+        encodeSpotifySoundtrackPath(trackId),
+        title
+      );
+      setAudioReloadNonce((n) => n + 1);
+      setChooserOpen(false);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Could not save Spotify soundtrack";
+      setUploadError(message);
+      throw err instanceof Error ? err : new Error(message);
     } finally {
       setUploadBusy(false);
     }
@@ -820,6 +880,7 @@ export function ModalExtraContent({
   }, [open, prevDisabled, nextDisabled, goPrevMonth, goNextMonth, focusKeyboardAnchor]);
 
   return (
+    <>
     <Dialog
       open={open}
       showCloseButton={false}
@@ -828,7 +889,9 @@ export function ModalExtraContent({
         event.preventDefault();
         focusKeyboardAnchor();
       }}
+      blockDismiss={chooserOpen}
       onOpenChange={(nextOpen) => {
+        if (!nextOpen && chooserOpen) return;
         if (nextOpen && pendingMonthIndex === null) {
           setView({ year, monthIndex: 0 });
         }
@@ -847,14 +910,14 @@ export function ModalExtraContent({
         aria-hidden
       />
       <audio ref={audioRef} className={styles.hiddenAudio} playsInline preload="auto" />
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept="audio/*"
-        className={styles.hiddenFileInput}
-        tabIndex={-1}
-        onChange={handleAudioFileChange}
-        aria-hidden
+      <ExternalSoundtrackPlayer
+        source={audioUi.source === "youtube" || audioUi.source === "spotify" ? audioUi.source : null}
+        externalId={audioUi.externalId}
+        active={open && !loadingContent && !imageLoading}
+        onEnded={() => {
+          if (resolvedMonthIndex >= months.length - 1) return;
+          goNextMonth();
+        }}
       />
       <div ref={surfaceRef} className={styles.dialogContent}>
         <button
@@ -926,27 +989,29 @@ export function ModalExtraContent({
             </div>
             <div className={styles.mediaRow}>
               {audioUi.hasTrack ? (
-                <div className={styles.soundtrackRow}>
+                <div className={`${styles.soundtrackRow}${audioUi.source !== "file" ? ` ${styles.soundtrackRowCompact}` : ""}`}>
                   <span className={styles.soundtrackName} title={displayAudioName}>
                     {truncateFilename(displayAudioName, 36)}
                   </span>
-                  <div className={styles.startTimeRow}>
-                    <label className={styles.startTimeLabel} htmlFor="secret-audio-start">
-                      First play starts at
-                    </label>
-                    <input
-                      id="secret-audio-start"
-                      type="text"
-                      className={styles.startTimeInput}
-                      value={startTimeDraft}
-                      onChange={(e) => handleStartTimeChange(e.target.value)}
-                      onBlur={() => flushStartTime()}
-                      placeholder="m:ss"
-                      inputMode="numeric"
-                      autoComplete="off"
-                      aria-describedby="secret-audio-start-hint"
-                    />
-                  </div>
+                  {audioUi.source === "file" && (
+                    <div className={styles.startTimeRow}>
+                      <label className={styles.startTimeLabel} htmlFor="secret-audio-start">
+                        First play starts at
+                      </label>
+                      <input
+                        id="secret-audio-start"
+                        type="text"
+                        className={styles.startTimeInput}
+                        value={startTimeDraft}
+                        onChange={(e) => handleStartTimeChange(e.target.value)}
+                        onBlur={() => flushStartTime()}
+                        placeholder="m:ss"
+                        inputMode="numeric"
+                        autoComplete="off"
+                        aria-describedby="secret-audio-start-hint"
+                      />
+                    </div>
+                  )}
                   <button
                     type="button"
                     className={styles.soundtrackRemove}
@@ -962,14 +1027,14 @@ export function ModalExtraContent({
                   type="button"
                   className={styles.mediaButton}
                   disabled={uploadBusy}
-                  onClick={() => fileInputRef.current?.click()}
+                  onClick={() => setChooserOpen(true)}
                 >
                   {uploadBusy ? (
-                    "Uploading…"
+                    "Saving…"
                   ) : (
                     <>
-                      <HiOutlinePaperClip className={styles.mediaButtonIcon} aria-hidden />
-                      Attach Soundtrack
+                      <HiOutlineMusicNote className={styles.mediaButtonIcon} aria-hidden />
+                      Add Soundtrack
                     </>
                   )}
                 </button>
@@ -1015,5 +1080,14 @@ export function ModalExtraContent({
         </div>
       </div>
     </Dialog>
+    <SoundtrackChooser
+      open={chooserOpen}
+      busy={uploadBusy}
+      onOpenChange={setChooserOpen}
+      onAttachMp3={attachMp3File}
+      onAttachYoutube={attachYoutubeSoundtrack}
+      onAttachSpotify={attachSpotifySoundtrack}
+    />
+    </>
   );
 }

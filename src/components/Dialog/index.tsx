@@ -18,6 +18,8 @@ interface DialogProps {
     allowClose?: boolean;
     showCloseButton?: boolean;
     contentClassName?: string;
+    overlayClassName?: string;
+    blockDismiss?: boolean;
 }
 
 type OutsideEvent = CustomEvent<{ originalEvent: Event }>;
@@ -63,7 +65,9 @@ export function Dialog({
     initialConfig,
     allowClose = true,
     showCloseButton = allowClose,
-    contentClassName
+    contentClassName,
+    overlayClassName,
+    blockDismiss = false
 }: DialogProps) {
     const handleOpenChange = (nextOpen: boolean) => {
         if (!allowClose && !nextOpen) {
@@ -83,7 +87,7 @@ export function Dialog({
             {trigger && <RadixDialog.Trigger asChild>{trigger}</RadixDialog.Trigger>}
             <RadixDialog.Portal>
                 <RadixDialog.Overlay
-                    className={classNames(styles.overlay, {
+                    className={classNames(styles.overlay, overlayClassName, {
                         [styles.initialConfigOverlay]: initialConfig,
                     })}
                 />
@@ -91,22 +95,22 @@ export function Dialog({
                     className={classNames(styles.content, contentClassName)}
                     onOpenAutoFocus={onOpenAutoFocus}
                     onPointerDownOutside={(event) => {
-                        if (shouldBlockOutsideDismiss(event, allowClose)) {
+                        if (blockDismiss || shouldBlockOutsideDismiss(event, allowClose)) {
                             event.preventDefault();
                         }
                     }}
                     onInteractOutside={(event) => {
-                        if (shouldBlockOutsideDismiss(event, allowClose)) {
+                        if (blockDismiss || shouldBlockOutsideDismiss(event, allowClose)) {
                             event.preventDefault();
                         }
                     }}
                     onFocusOutside={(event) => {
-                        if (shouldBlockOutsideDismiss(event, allowClose)) {
+                        if (blockDismiss || shouldBlockOutsideDismiss(event, allowClose)) {
                             event.preventDefault();
                         }
                     }}
                     onEscapeKeyDown={(event) => {
-                        if (!allowClose) {
+                        if (!allowClose || blockDismiss) {
                             event.preventDefault();
                         }
                     }}

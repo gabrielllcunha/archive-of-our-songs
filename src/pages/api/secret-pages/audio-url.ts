@@ -1,6 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { getSupabaseAdmin } from '@/utils/supabaseAdmin';
 import { getSupabaseUserFromRequest } from '@/utils/server/getSupabaseUserFromRequest';
+import { isStoredFileAudioPath } from '@/utils/soundtrackSource';
 
 const BUCKET = 'secret-pages-audio';
 
@@ -43,7 +44,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   const storagePath = row?.audio_storage_path as string | null | undefined;
-  if (!storagePath) {
+  if (!isStoredFileAudioPath(storagePath)) {
     return res.status(200).json({ url: null });
   }
 

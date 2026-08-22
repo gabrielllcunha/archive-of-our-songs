@@ -5,6 +5,7 @@ import {
   decryptSecretPageContentDetailed,
   encryptSecretPageContent,
 } from '@/utils/secretPageCrypto';
+import { isStoredFileAudioPath } from '@/utils/soundtrackSource';
 
 export type SecretPageRecord = {
   content: string;
@@ -370,6 +371,22 @@ export const secretPagesStorage = {
     await res.json().catch(() => ({}));
   },
 
+  async setExternalSoundtrack(
+    lastfmUsername: string,
+    year: number,
+    month: string,
+    path: string,
+    filename: string
+  ): Promise<void> {
+    await secretPagesStorage.removeAudioFile(lastfmUsername, year, month);
+    await secretPagesStorage.storeSecretPage(lastfmUsername, year, month, {
+      audio_storage_path: path,
+      audio_original_filename: filename.slice(0, 240),
+      audio_start_seconds: 0,
+      audio_blob: null,
+    });
+  },
+
   async removeAudioFile(lastfmUsername: string, year: number, month: string): Promise<boolean> {
     let serverOk = false;
     try {
@@ -404,7 +421,7 @@ export const secretPagesStorage = {
     if (record.audio_blob && record.audio_blob.byteLength > 0) {
       return URL.createObjectURL(new Blob([record.audio_blob], { type: 'audio/mpeg' }));
     }
-    if (!record.audio_storage_path) return null;
+    if (!isStoredFileAudioPath(record.audio_storage_path)) return null;
 
     const res = await authenticatedFetch('/api/secret-pages/audio-url', {
       method: 'POST',
